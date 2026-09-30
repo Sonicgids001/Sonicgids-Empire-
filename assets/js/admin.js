@@ -34,7 +34,7 @@
     filter: "pending",
     search: "",
     editingServiceId: null,
-    loaded: { orders: false, services: false, leads: false, subscribers: false }
+    loaded: { orders: false, services: false, leads: false, subscribers: false, walletTopups: false }
   };
 
   const $gate = () => $("[data-admin-gate]");
@@ -65,6 +65,7 @@
 
   function loadTab(tab) {
     if (tab === "orders" && !state.loaded.orders) loadOrders();
+    if (tab === "wallet" && !state.loaded.walletTopups) loadWalletTopups();
     if (tab === "services" && !state.loaded.services) loadServices();
     if (tab === "leads" && !state.loaded.leads) loadLeads();
     if (tab === "subscribers" && !state.loaded.subscribers) loadSubscribers();
@@ -356,6 +357,55 @@
         renderOrders();
       });
     }
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* Wallet top-ups                                                     */
+  /* ------------------------------------------------------------------ */
+  async function loadWalletTopups() {
+    const el = $("[data-admin-wallet-topups]");
+    if (el) el.innerHTML = '<p class="muted small">Loading requests…</p>';
+    try {
+      const requests = await window.SG.adminListWalletTopups();
+      state.loaded.walletTopups = true;
+      if (!el) return;
+      if (!requests.length) {
+        el.innerHTML = '<div class="empty-state"><div class="empty-icon">✓</div><h3>No pending top-ups</h3><p>New payment requests will appear here.</p></div>';
+        return;
+      }
+      el.innerHTML = requests.map((item) => `
+        <article class="lead-row wallet-review" data-wallet-request="${esc(item.id)}">
+          <div class="lead-top"><strong>${esc(item.email || item.uid)}</strong><span>${money(item.amount)}</span><span class="task-when">${dateStr(item.createdAt)}</span></div>
+          <p class="small muted">Transfer reference: <strong>${esc(item.reference || "Not provided")}</strong></p>
+          <div class="lead-actions">
+            <button class="btn btn-gold btn-sm" type="button" data-wallet-review="approve" data-id="${esc(item.id)}">Verify &amp; approve</button>
+            <button class="btn btn-ghost btn-sm" type="button" data-wallet-review="reject" data-id="${esc(item.id)}">Reject request</button>
+          </div>
+        </article>`).join("");
+    } catch (err) {
+      if (el) el.innerHTML = `<div class="alert show alert-error">${esc((window.SG.friendlyDbError && window.SG.friendlyDbError(err)) || "Top-up requests could not be loaded.")}</div>`;
+    }
+  }
+
+  function initWalletTopups() {
+    const el = $("[data-admin-wallet-topups]");
+    if (!el) return;
+    el.addEventListener("click", async (event) => {
+      const button = event.target.closest("[data-wallet-review]");
+      if (!button) return;
+      const approve = button.dataset.walletReview === "approve";
+      if (approve && !confirm("Confirm you have received this payment and credit the client's wallet?")) return;
+      button.disabled = true;
+      try {
+        await window.SG.adminReviewWalletTopup(button.dataset.id, approve);
+        toast(approve ? "Top-up verified and wallet credited." : "Top-up request rejected.");
+        state.loaded.walletTopups = false;
+        await loadWalletTopups();
+      } catch (err) {
+        toast((window.SG.friendlyDbError && window.SG.friendlyDbError(err)) || err.message || "Could not review top-up.", "error");
+        button.disabled = false;
+      }
+    });
   }
 
   /* ------------------------------------------------------------------ */
@@ -738,10 +788,11 @@
     const refresh = $("[data-admin-refresh]");
     if (refresh) {
       refresh.addEventListener("click", async () => {
-        state.loaded = { orders: false, services: false, leads: false, subscribers: false };
+        state.loaded = { orders: false, services: false, leads: false, subscribers: false, walletTopups: false };
         toast("Refreshing…");
         await loadOrders();
         await loadServices();
+        await loadWalletTopups();
       });
     }
   }
@@ -753,6 +804,7 @@
     initTabs();
     initOrderFilters();
     initOrderActions();
+    initWalletTopups();
     initServiceAdmin();
     initAddServiceButton();
     initGate();

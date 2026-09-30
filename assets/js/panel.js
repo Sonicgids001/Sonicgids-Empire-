@@ -62,7 +62,7 @@
       <div class="bp-success-inner">
         <div class="bp-success-mark">✓</div>
         <h3>Order placed</h3>
-        <p>Reference <strong data-bp-ref>—</strong>. Status: <strong>pending</strong> — the admin reviews it, then it moves to approved, in progress and completed.</p>
+        <p>Reference <strong data-bp-ref>—</strong>. Status: <strong>pending</strong> — your wallet was charged. Rejected orders are refunded to your wallet.</p>
         <div class="bp-success-actions">
           <button class="btn btn-gold" type="button" data-bp-again>Place another order</button>
           <a class="btn btn-ghost" href="dashboard.html?tab=orders">Track my orders</a>
@@ -138,7 +138,7 @@
         <div class="bp-field">
           <label for="bp-amount">Amount (₦)</label>
           <div class="bp-amount" data-bp-amount>₦0.00</div>
-          <p class="bp-hint">Quantity ÷ 1,000 × rate. Nothing is charged when you submit — payment details come after the order is approved.</p>
+          <p class="bp-hint">Quantity ÷ 1,000 × rate. The amount is deducted from your wallet when you place the order. Rejected orders are refunded.</p>
         </div>
 
         <div class="bp-field bp-field-optional">
@@ -151,8 +151,9 @@
           <textarea id="bp-notes" name="notes" data-bp-notes placeholder="Custom comments, live stream start time, country targeting, referrer…" rows="3"></textarea>
         </div>
 
+        <div class="bp-wallet-summary">Wallet balance: <strong data-bp-wallet-balance>Loading…</strong> <a href="dashboard.html">Add funds</a></div>
         <button class="btn btn-gold btn-block btn-lg" type="submit" data-bp-submit>Continue</button>
-        <p class="bp-foot">Your order starts as <strong>pending</strong> and is tracked in your dashboard.</p>
+        <p class="bp-foot">The amount is deducted when you order. Rejected orders are refunded to your wallet.</p>
       </form>
     </div>
   </div>`;
@@ -469,6 +470,8 @@
       el.body.classList.add("hide");
       el.success.classList.remove("hide");
       el.ref.textContent = res.ref;
+      const balanceEl = this.mount.querySelector("[data-bp-wallet-balance]");
+      if (balanceEl) balanceEl.textContent = money(res.balance);
       el.success.scrollIntoView({ behavior: "smooth", block: "center" });
       window.sgToast && window.sgToast("Order placed — status: pending.");
       this.mount.dispatchEvent(new CustomEvent("sg:order-placed", { detail: res, bubbles: true }));
@@ -519,6 +522,14 @@
         }
 
         self.mount.classList.remove("bp-locked");
+        try {
+          const walletBalance = await window.SG.walletBalance();
+          const balanceEl = self.mount.querySelector("[data-bp-wallet-balance]");
+          if (balanceEl) balanceEl.textContent = money(walletBalance);
+        } catch (err) {
+          const balanceEl = self.mount.querySelector("[data-bp-wallet-balance]");
+          if (balanceEl) balanceEl.textContent = "Unavailable";
+        }
         try {
           self.services = await window.SG.listBoostServices(true);
         } catch (err) {

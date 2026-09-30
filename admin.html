@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+<script>document.documentElement.classList.add("sg-auth-pending")</script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Admin Console | Sonicgids Empire</title>
@@ -15,7 +16,7 @@
 <link rel="stylesheet" href="assets/css/pages.css">
 <link rel="stylesheet" href="assets/css/admin.css">
 </head>
-<body data-page="admin">
+<body data-auth-required aria-busy="true" data-page="admin">
 
 <header class="site-header">
   <div class="container">
@@ -157,6 +158,7 @@
         <div class="admin-tabs">
           <button class="admin-tab active" type="button" data-admin-tab="overview">Overview</button>
           <button class="admin-tab" type="button" data-admin-tab="orders">Orders <span class="tab-count hide" data-count-pending>0</span></button>
+          <button class="admin-tab" type="button" data-admin-tab="wallet">Wallet top-ups</button>
           <button class="admin-tab" type="button" data-admin-tab="services">Boost services</button>
           <button class="admin-tab" type="button" data-admin-tab="leads">Leads</button>
           <button class="admin-tab" type="button" data-admin-tab="subscribers">Subscribers</button>
@@ -209,6 +211,15 @@
 
         <p class="small muted mb-2"><span data-admin-order-count>0</span> order(s) in this view</p>
         <div data-admin-orders></div>
+      </div>
+
+      <!-- ---------- Wallet top-ups ---------- -->
+      <div data-admin-view="wallet" class="hide">
+        <div class="card card-solid mb-3">
+          <h3>Wallet top-up requests</h3>
+          <p class="small muted mt-1">Verify each transfer in your payment account before approving it. Approve adds the requested amount to the client's wallet; reject leaves the balance unchanged.</p>
+        </div>
+        <div data-admin-wallet-topups></div>
       </div>
 
       <!-- ---------- Services ---------- -->
@@ -372,6 +383,7 @@
 <a class="to-top" href="#" aria-label="Back to top"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 19V5M5 12l7-7 7 7" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></a>
 
 <script src="assets/js/firebase.js"></script>
+<script src="assets/js/page-guard.js"></script>
 <script src="assets/js/site.js"></script>
 <script src="assets/js/auth.js"></script>
 <script src="assets/js/orders.js"></script>

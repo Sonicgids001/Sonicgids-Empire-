@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+<script>document.documentElement.classList.add("sg-auth-pending")</script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Buy Social Media Boosts — Followers, Views, Likes &amp; Plays | Sonicgids Empire</title>
@@ -15,7 +16,7 @@
 <link rel="stylesheet" href="assets/css/pages.css">
 <link rel="stylesheet" href="assets/css/admin.css">
 </head>
-<body data-page="order">
+<body data-auth-required aria-busy="true" data-page="order">
 
 <header class="site-header">
   <div class="container">
@@ -96,7 +97,7 @@
   <div class="container">
     <span class="eyebrow center">Social media market</span>
     <h1>Boost your <span class="gold-text">social accounts</span></h1>
-    <p class="lead">Pick a service, paste the link, enter the quantity and submit. The amount in naira is calculated from the rate per 1,000 — every order starts as <strong>pending</strong> and is tracked live in your dashboard.</p>
+    <p class="lead">Pick a service, paste the link, enter the quantity and submit. The amount in naira is calculated from the rate per 1,000 and paid from your wallet — every order starts as <strong>pending</strong> and is tracked live in your dashboard.</p>
     <div class="pill-row" style="justify-content:center;margin-top:22px">
       <span class="chip">⏳ Pending</span>
       <span class="chip">✅ Approved</span>
@@ -141,7 +142,7 @@
       </div>
       <div class="acc-item">
         <button class="acc-q" type="button">When and how do I pay?<span class="pm">+</span></button>
-        <div class="acc-a"><div class="acc-a-inner">Nothing is charged when you submit. The order lands in our queue as <strong>pending</strong>. Once it is approved we send payment details (bank transfer, Paystack or card) on WhatsApp, and delivery starts as soon as payment is confirmed.</div></div>
+        <div class="acc-a"><div class="acc-a-inner">Your wallet is charged when you submit the order. It enters the queue as <strong>pending</strong>; if our team rejects it, the amount is refunded to your wallet.</div></div>
       </div>
       <div class="acc-item">
         <button class="acc-q" type="button">How long does approval take?<span class="pm">+</span></button>
@@ -242,6 +243,7 @@
 <a class="to-top" href="#" aria-label="Back to top"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 19V5M5 12l7-7 7 7" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></a>
 
 <script src="assets/js/firebase.js"></script>
+<script src="assets/js/page-guard.js"></script>
 <script src="assets/js/site.js"></script>
 <script src="assets/js/auth.js"></script>
 <script src="assets/js/orders.js"></script>

@@ -37,6 +37,16 @@
 
   const validEmail = (v) => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v);
 
+  function safeNext(defaultPage) {
+    const next = new URLSearchParams(location.search).get("next");
+    if (!next) return defaultPage;
+    try {
+      const target = new URL(next, location.href);
+      if (target.origin !== location.origin || !/^\/(?!\/)/.test(target.pathname)) return defaultPage;
+      return target.pathname.slice(1) + target.search + target.hash;
+    } catch (_) { return defaultPage; }
+  }
+
   /* --------------------------------------------------------------------------
      Nav state — swap "Client Login" for "Dashboard / Sign out"
      -------------------------------------------------------------------------- */
@@ -138,15 +148,14 @@
         if (mode === "signup") {
           await window.SG.signUp(email, password, name);
           setAlert(alertEl, "Account created. Taking you to your dashboard…", "success");
-          setTimeout(() => (location.href = "dashboard.html"), 900);
+          setTimeout(() => (location.href = safeNext("dashboard.html")), 900);
         } else if (mode === "login") {
           const user = await window.SG.signIn(email, password);
-          const explicit = new URLSearchParams(location.search).get("next");
           const isOwner = window.SG.isAdminEmail && window.SG.isAdminEmail(user.email);
-          const dest = explicit || (isOwner ? "admin.html" : "dashboard.html");
+          const dest = safeNext(isOwner ? "admin.html" : "dashboard.html");
           setAlert(
             alertEl,
-            isOwner && !explicit
+            isOwner && !new URLSearchParams(location.search).has("next")
               ? "Welcome back, admin. Opening the admin console…"
               : "Welcome back. Loading your dashboard…",
             "success"
@@ -193,9 +202,8 @@
         btn.textContent = "Opening Google…";
         try {
           const user = await window.SG.signInWithGoogle();
-          const explicit = new URLSearchParams(location.search).get("next");
           const isOwner = window.SG.isAdminEmail && window.SG.isAdminEmail(user.email);
-          location.href = explicit || (isOwner ? "admin.html" : "dashboard.html");
+          location.href = safeNext(isOwner ? "admin.html" : "dashboard.html");
         } catch (err) {
           setAlert(
             alertEl,
@@ -326,6 +334,88 @@
     });
   }
 
+  /* --------------------------------------------------------------------------
+     Wallet panel — top-ups are requests and require manual payment verification.
+     -------------------------------------------------------------------------- */
+  function initWallet() {
+    const root = $("[data-wallet-balance]");
+    const form = $("[data-wallet-topup]");
+    if (!root && !form) return;
+
+    const setWalletAlert = (message, type) => {
+      const el = $("[data-wallet-note]");
+      if (!el) return;
+      el.className = "alert show alert-" + (type || "info");
+      el.textContent = message;
+    };
+
+    async function refresh() {
+      if (!window.SG.currentUser) return;
+      try {
+        const [balance, activity, topups] = await Promise.all([
+          window.SG.walletBalance(), window.SG.myWalletActivity(), window.SG.myWalletTopups()
+        ]);
+        if (root) root.textContent = window.SG.money(balance);
+        const list = $("[data-wallet-activity]");
+        if (!list) return;
+        const entries = activity.map((entry) => ({
+          title: entry.note || (entry.type === "credit" ? "Wallet credit" : "Order payment"),
+          value: (entry.type === "credit" ? 1 : -1) * Number(entry.amount || 0),
+          createdAt: entry.createdAt,
+          status: ""
+        }));
+        topups.forEach((topup) => entries.push({
+          title: "Top-up request" + (topup.reference ? " · " + topup.reference : ""),
+          value: 0, createdAt: topup.createdAt, status: topup.status
+        }));
+        entries.sort((a, b) => walletMillis(b.createdAt) - walletMillis(a.createdAt));
+        list.innerHTML = entries.length ? entries.slice(0, 8).map((entry) => {
+          const date = walletDate(entry.createdAt);
+          const amount = entry.value ? `<strong class="${entry.value > 0 ? "positive" : "negative"}">${entry.value > 0 ? "+" : "−"}${window.SG.money(Math.abs(entry.value))}</strong>` : `<span class="wallet-status">${escapeHtml(entry.status)}</span>`;
+          return `<div class="wallet-entry"><span>${escapeHtml(entry.title)}<br><span class="muted">${date}</span></span>${amount}</div>`;
+        }).join("") : '<p class="small muted">Your wallet activity will appear here.</p>';
+      } catch (err) {
+        if (root) root.textContent = "Unavailable";
+        setWalletAlert((window.SG.friendlyDbError && window.SG.friendlyDbError(err)) || "Wallet data could not be loaded.", "error");
+      }
+    }
+
+    if (form) form.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const button = $('button[type="submit"]', form);
+      const amount = Number($('[name="amount"]', form).value);
+      const reference = $('[name="reference"]', form).value.trim();
+      if (!Number.isFinite(amount) || amount < 100) return setWalletAlert("Enter at least ₦100.", "error");
+      button.disabled = true;
+      button.textContent = "Submitting…";
+      try {
+        await window.SG.requestWalletTopup(amount, reference);
+        form.reset();
+        setWalletAlert("Top-up request received. We’ll verify the transfer before adding funds to your wallet.", "success");
+        await refresh();
+      } catch (err) {
+        setWalletAlert((window.SG.friendlyDbError && window.SG.friendlyDbError(err)) || err.message || "Could not submit the request.", "error");
+      } finally {
+        button.disabled = false;
+        button.textContent = "Submit top-up request";
+      }
+    });
+
+    window.SGOnReady(() => window.SG.onUser((user) => { if (user) refresh(); }));
+    document.addEventListener("sg:order-placed", () => setTimeout(refresh, 500));
+    window.addEventListener("focus", refresh);
+  }
+
+  function walletMillis(value) {
+    if (!value) return 0;
+    if (typeof value.toDate === "function") return value.toDate().getTime();
+    return new Date(value).getTime() || 0;
+  }
+  function walletDate(value) {
+    const time = walletMillis(value);
+    return time ? new Date(time).toLocaleDateString("en-GB", { day: "numeric", month: "short" }) : "Just now";
+  }
+
   function escapeHtml(str) {
     return String(str)
       .replace(/&/g, "&amp;")
@@ -343,6 +433,7 @@
     initProviderButtons();
     initDashboard();
     initDashboardTabs();
+    initWallet();
 
     window.SGOnReady(() => {
       window.SG.onUser(renderNavState);

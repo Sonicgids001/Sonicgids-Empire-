@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+<script>document.documentElement.classList.add("sg-auth-pending")</script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Boost Rates — Price per 1,000 for Every Service | Sonicgids Empire</title>
@@ -32,7 +33,7 @@
 <link rel="stylesheet" href="assets/css/admin.css">
 
 </head>
-<body data-page="pricing">
+<body data-auth-required aria-busy="true" data-page="pricing">
 <header class="site-header">
   <div class="container">
     <nav class="nav" aria-label="Main navigation">
@@ -145,7 +146,7 @@
       </div>
     </div>
 
-    <p class="small muted mt-3">Amount = quantity ÷ 1,000 × rate. Minimum and maximum quantities are enforced on the order form. Nothing is charged when you submit — payment details are sent after the order is approved.</p>
+    <p class="small muted mt-3">Amount = quantity ÷ 1,000 × rate. Minimum and maximum quantities are enforced on the order form. The displayed amount is deducted from your wallet when you submit. Rejected orders are refunded.</p>
   </div>
 </section>
 
@@ -169,7 +170,7 @@
       <article class="card reveal d3">
         <div class="card-icon">⏳</div>
         <h3>3. We approve &amp; deliver</h3>
-        <p>The order lands as <strong>pending</strong>. We review it, send payment details, then it moves to <strong>approved</strong>, <strong>in progress</strong> and <strong>completed</strong>.</p>
+        <p>The amount is deducted from your wallet when you submit. We review the order and it moves to <strong>approved</strong>, <strong>in progress</strong> and <strong>completed</strong>; rejected orders are refunded.</p>
       </article>
       <article class="card reveal d4">
         <div class="card-icon">📊</div>
@@ -205,11 +206,11 @@
       </div>
       <div class="acc-item">
         <button class="acc-q" type="button">How do I pay?<span class="pm">+</span></button>
-        <div class="acc-a"><div class="acc-a-inner">After your order is approved we send payment details on WhatsApp or by email — bank transfer, Paystack or card. Delivery starts once payment is confirmed. No card is ever needed to place an order.</div></div>
+        <div class="acc-a"><div class="acc-a-inner">Fund your wallet through a top-up request from your dashboard. Our team verifies the transfer and credits your wallet; placing an order deducts its displayed price immediately.</div></div>
       </div>
       <div class="acc-item">
         <button class="acc-q" type="button">Do rates include refunds or refills?<span class="pm">+</span></button>
-        <div class="acc-a"><div class="acc-a-inner">The quality column on each service tells you what to expect — refill windows, drop risk and targeting. Orders rejected before delivery are cancelled with a note, and you are never charged for them.</div></div>
+        <div class="acc-a"><div class="acc-a-inner">The quality column on each service tells you what to expect — refill windows, drop risk and targeting. Rejected orders are cancelled with a note and the amount is returned to your wallet.</div></div>
       </div>
       <div class="acc-item">
         <button class="acc-q" type="button">Can I get a rate for something not listed?<span class="pm">+</span></button>
@@ -316,6 +317,7 @@
 </a>
 
 <script src="assets/js/firebase.js"></script>
+<script src="assets/js/page-guard.js"></script>
 <script src="assets/js/site.js"></script>
 <script src="assets/js/auth.js"></script>
 <script src="assets/js/rates.js"></script>

@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+<script>document.documentElement.classList.add("sg-auth-pending")</script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Dashboard — Boost Panel & Order Tracking | Sonicgids Empire</title>
@@ -32,7 +33,7 @@
 <link rel="stylesheet" href="assets/css/admin.css">
 
 </head>
-<body data-page="dashboard">
+<body data-auth-required aria-busy="true" data-page="dashboard">
 <header class="site-header">
   <div class="container">
     <nav class="nav" aria-label="Main navigation">
@@ -140,6 +141,27 @@
           <button class="btn btn-white" type="button" data-sign-out data-redirect="index.html">Sign out</button>
         </div>
       </div>
+
+      <section class="wallet-panel card card-solid" aria-labelledby="wallet-title">
+        <div class="wallet-head">
+          <div><span class="eyebrow">Client wallet</span><h2 id="wallet-title">Available balance</h2>
+            <p class="small muted">Pay boost orders instantly from your wallet. Orders rejected by our team are refunded automatically.</p></div>
+          <div class="wallet-balance" data-wallet-balance aria-live="polite">Loading…</div>
+        </div>
+        <div class="wallet-columns">
+          <form class="wallet-topup" data-wallet-topup novalidate>
+            <h3>Add funds</h3>
+            <p class="small muted"><a href="https://wa.me/2347038322626?text=Please%20send%20me%20wallet%20top-up%20payment%20instructions" target="_blank" rel="noopener">Message us for transfer instructions</a>, then submit the amount and transfer reference. Your balance updates after manual verification.</p>
+            <div class="field-row">
+              <div class="field"><label for="wallet-amount">Amount (₦)</label><input id="wallet-amount" name="amount" type="number" min="100" max="50000000" step="0.01" required placeholder="e.g. 5000"></div>
+              <div class="field"><label for="wallet-reference">Transfer reference</label><input id="wallet-reference" name="reference" type="text" maxlength="100" placeholder="Bank / payment reference"></div>
+            </div>
+            <button class="btn btn-gold" type="submit">Submit top-up request</button>
+            <div class="alert" data-wallet-note role="status"></div>
+          </form>
+          <div class="wallet-activity"><h3>Recent wallet activity</h3><div data-wallet-activity><p class="small muted">Loading wallet activity…</p></div></div>
+        </div>
+      </section>
 
       <div class="alert alert-info hide" data-dashboard-note role="status"></div>
 
@@ -353,6 +375,7 @@
 </a>
 
 <script src="assets/js/firebase.js"></script>
+<script src="assets/js/page-guard.js"></script>
 <script src="assets/js/site.js"></script>
 <script src="assets/js/auth.js"></script>
 <script src="assets/js/orders.js"></script>

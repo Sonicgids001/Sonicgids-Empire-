@@ -79,10 +79,28 @@ service cloud.firestore {
         return value is number && value >= 0 && value <= 500000000;
       }
 
+      // Client-submitted totals must match the server-managed catalogue. This
+      // requires services to be seeded into boostServices before checkout.
+      function validCatalogOrder(order) {
+        let servicePath = /databases/$(database)/documents/boostServices/$(order.serviceId);
+        let service = get(servicePath).data;
+        let expected = order.quantityNum * service.ratePer1000 / 1000;
+        return order.serviceId is string
+          && exists(servicePath)
+          && service.active == true
+          && order.ratePer1000 == service.ratePer1000
+          && order.quantityNum >= service.min
+          && order.quantityNum <= service.max
+          && order.priority == service.priority
+          && order.amount >= expected - 0.005
+          && order.amount <= expected + 0.005;
+      }
+
       // A signed-in client may open an order. Status and audit fields are
       // pinned so they cannot be spoofed from the browser.
       function validNewOrder() {
         return signedIn()
+          && validCatalogOrder(request.resource.data)
           && request.resource.data.uid == request.auth.uid
           && request.resource.data.status == 'pending'
           && request.resource.data.priority in ['urgent', 'high', 'normal', 'low']
@@ -92,6 +110,7 @@ service cloud.firestore {
           && isString(request.resource.data.contactPhone, 40)
           && isString(request.resource.data.notes, 2000)
           && isMoney(request.resource.data.amount)
+          && request.resource.data.amount > 0
           && (!('ratePer1000' in request.resource.data)
               || isMoney(request.resource.data.ratePer1000))
           && (!('quantityNum' in request.resource.data)
@@ -108,7 +127,7 @@ service cloud.firestore {
           && !('priority' in request.resource.data.diff(resource.data).affectedKeys());
       }
 
-      allow create: if validNewOrder()
+      allow create: if (validNewOrder() && validWalletDebit(orderId, request.resource.data))
                     || (isAdmin() && request.resource.data.status in
                         ['pending', 'approved', 'rejected', 'ongoing', 'completed']);
 
@@ -127,8 +146,79 @@ service cloud.firestore {
       // Clients may only withdraw their own feedback fields (never status).
       allow update: if signedIn()
                     && resource.data.uid == request.auth.uid
-                    && statusUntouched();
+                    && statusUntouched()
+                    && request.resource.data.diff(resource.data).affectedKeys()
+                       .hasOnly(['targetLink', 'notes', 'contactPhone', 'brand']);
 
+      allow delete: if isAdmin();
+    }
+
+
+    // ---- Client wallets and immutable ledger --------------------------------
+    function validWalletDebit(orderId, order) {
+      let ledger = getAfter(/databases/$(database)/documents/walletTransactions/$("order_" + orderId));
+      return ledger.data.uid == order.uid
+        && ledger.data.type == 'debit'
+        && ledger.data.source == 'order'
+        && ledger.data.orderId == orderId
+        && ledger.data.amount == order.amount
+        && ledger.data.balanceAfter == getAfter(/databases/$(database)/documents/wallets/$(order.uid)).data.balance
+        && get(/databases/$(database)/documents/wallets/$(order.uid)).data.balance - order.amount == ledger.data.balanceAfter;
+    }
+
+    match /wallets/{uid} {
+      allow read: if isAdmin() || (signedIn() && request.auth.uid == uid);
+      // A client may only initialise their wallet at zero.
+      allow create: if isAdmin() || (signedIn() && request.auth.uid == uid
+                    && request.resource.data.balance == 0
+                    && request.resource.data.currency == 'NGN'
+                    && request.resource.data.keys().hasOnly(['balance', 'currency', 'updatedAt']));
+      // Client-side changes can only be a real debit paired atomically with
+      // the corresponding order and ledger entry. Admin credits are reviewed.
+      allow update: if isAdmin() || (signedIn() && request.auth.uid == uid
+                    && request.resource.data.keys().hasOnly(['balance', 'currency', 'updatedAt', 'lastTransactionId'])
+                    && request.resource.data.balance >= 0
+                    && request.resource.data.balance < resource.data.balance
+                    && request.resource.data.lastTransactionId is string
+                    && getAfter(/databases/$(database)/documents/walletTransactions/$(request.resource.data.lastTransactionId)).data.uid == uid
+                    && getAfter(/databases/$(database)/documents/walletTransactions/$(request.resource.data.lastTransactionId)).data.type == 'debit'
+                    && getAfter(/databases/$(database)/documents/walletTransactions/$(request.resource.data.lastTransactionId)).data.amount == resource.data.balance - request.resource.data.balance
+                    && getAfter(/databases/$(database)/documents/walletTransactions/$(request.resource.data.lastTransactionId)).data.balanceAfter == request.resource.data.balance);
+      allow delete: if isAdmin();
+    }
+
+    match /walletTransactions/{transactionId} {
+      allow read: if isAdmin() || (signedIn() && resource.data.uid == request.auth.uid);
+      allow create: if isAdmin() || (signedIn()
+                    && request.resource.data.uid == request.auth.uid
+                    && request.resource.data.type == 'debit'
+                    && request.resource.data.source == 'order'
+                    && request.resource.data.orderId is string
+                    && request.resource.data.amount is number
+                    && request.resource.data.amount >= 0
+                    && transactionId == 'order_' + request.resource.data.orderId
+                    && getAfter(/databases/$(database)/documents/orders/$(request.resource.data.orderId)).data.uid == request.auth.uid
+                    && getAfter(/databases/$(database)/documents/orders/$(request.resource.data.orderId)).data.amount == request.resource.data.amount
+                    && getAfter(/databases/$(database)/documents/wallets/$(request.auth.uid)).data.balance == request.resource.data.balanceAfter);
+      allow update, delete: if false;
+    }
+
+    // Top-up requests are intentionally not deposits: an owner verifies
+    // receipt of funds and credits the wallet in a separate admin-only action.
+    match /walletTopups/{topupId} {
+      allow create: if signedIn()
+                    && request.resource.data.uid == request.auth.uid
+                    && isValidEmail(request.resource.data.email)
+                    && request.resource.data.amount is number
+                    && request.resource.data.amount >= 100
+                    && request.resource.data.amount <= 50000000
+                    && request.resource.data.status == 'pending'
+                    && isString(request.resource.data.reference, 100);
+      allow read: if isAdmin() || (signedIn() && resource.data.uid == request.auth.uid);
+      allow update: if isAdmin()
+                    && resource.data.status == 'pending'
+                    && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'reviewedAt', 'reviewedBy'])
+                    && request.resource.data.status in ['approved', 'rejected'];
       allow delete: if isAdmin();
     }
 

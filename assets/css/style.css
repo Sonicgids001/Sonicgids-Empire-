@@ -1215,3 +1215,6 @@ td strong { color: #fff; }
   body::before, body::after, .site-header, .to-top, .wa-float { display: none !important; }
   body { background: #fff; color: #000; }
 }
+
+/* Keep private static pages out of view until Firebase restores the session. */
+html.sg-auth-pending body { visibility: hidden !important; }

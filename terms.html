@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+<script>document.documentElement.classList.add("sg-auth-pending")</script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Terms of Service | Sonicgids Empire</title>
@@ -31,7 +32,7 @@
 <link rel="stylesheet" href="assets/css/pages.css">
 
 </head>
-<body data-page="terms">
+<body data-auth-required aria-busy="true" data-page="terms">
 <header class="site-header">
   <div class="container">
     <nav class="nav" aria-label="Main navigation">
@@ -157,7 +158,7 @@
     <div class="reveal mt-3">
       <h2 style="font-size:1.4rem">7. Term and termination</h2>
       <p>Using the website is free: creating an account, browsing the rate card, submitting boost orders and tracking them carries no charge, no subscription and no minimum spend.</p>
-      <p>Each boost order is a separate purchase priced in naira as <strong>quantity ÷ 1,000 × the rate per 1,000</strong> shown on the order form at the time you submit. Orders are created as <em>pending</em>; nothing is charged until we approve the order and you pay the amount shown. An order may be rejected before delivery — in that case nothing is due.</p>
+      <p>Each boost order is a separate purchase priced in naira as <strong>quantity ÷ 1,000 × the rate per 1,000</strong> shown on the order form at the time you submit. Orders are paid from the available wallet balance at submission and created as <em>pending</em>. If we reject an order, its amount is returned to the wallet. Wallet top-ups are credited only after payment is verified by our team.</p>
       <p>Where a separate managed-service engagement is agreed in writing, it starts with a 90-day initial term and continues month to month after that. Either party may terminate it with 30 days' written notice. On termination we hand over assets, account access and reporting; fees for work already completed remain payable.</p>
     </div>
 
@@ -279,6 +280,7 @@
 </a>
 
 <script src="assets/js/firebase.js"></script>
+<script src="assets/js/page-guard.js"></script>
 <script src="assets/js/site.js"></script>
 <script src="assets/js/auth.js"></script>
 </body>
