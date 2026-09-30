@@ -1,0 +1,14 @@
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editors
+.vscode/
+.idea/
+
+# Firebase CLI cache and local emulator data
+.firebase/
+*.log
+
+# Node (only used for the optional tools/ script)
+node_modules/

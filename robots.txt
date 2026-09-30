@@ -1,0 +1,9 @@
+User-agent: *
+Allow: /
+Disallow: /dashboard.html
+Disallow: /login.html
+Disallow: /signup.html
+Disallow: /forgot-password.html
+Disallow: /thank-you.html
+
+Sitemap: https://sonicgidsempire.web.app/sitemap.xml
