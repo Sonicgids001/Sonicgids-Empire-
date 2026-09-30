@@ -1,11 +1,32 @@
 rules_version = '2';
 
+// ============================================================================
 // Sonicgids Empire — Firestore security rules
+//
 // Collections:
-//   leads       — project briefs submitted from the contact form
-//   subscribers — newsletter sign-ups from the footer / blog
+//   leads          — project briefs submitted from the contact form
+//   subscribers    — newsletter sign-ups from the footer / blog
+//   orders         — boost-service orders (pending → approved → ongoing → completed)
+//   boostServices  — the boosting catalogue managed from the admin console
+//
+// Access model
+//   • Clients      : create their own orders, read only their own records.
+//   • Admin        : the single owner address below. Only the admin can read or
+//                    change order status, priorities and the boosting catalogue.
+//   • Everything else is denied.
+// ============================================================================
+
 service cloud.firestore {
   match /databases/{database}/documents {
+
+    // ---- Admin identity -----------------------------------------------------
+    // Change the address here (and in assets/js/firebase.js — SG.ADMIN_EMAIL)
+    // if the owner account ever changes.
+    function isAdmin() {
+      return request.auth != null
+        && request.auth.token.email_verified == true
+        && request.auth.token.email == 'okogbagideon28@gmail.com';
+    }
 
     function signedIn() {
       return request.auth != null;
@@ -15,7 +36,11 @@ service cloud.firestore {
       return value is string && value.size() <= 200 && value.matches('.+@.+\\..+');
     }
 
-    // Contact form briefs: anyone can submit, only the owning client can read.
+    function isString(value, max) {
+      return value is string && value.size() <= max;
+    }
+
+    // ---- Contact form briefs ------------------------------------------------
     match /leads/{leadId} {
       allow create: if request.resource.data.name is string
                     && request.resource.data.name.size() >= 2
@@ -25,16 +50,72 @@ service cloud.firestore {
                     && request.resource.data.message.size() >= 20
                     && request.resource.data.message.size() <= 5000;
 
-      allow read: if signedIn() && resource.data.uid == request.auth.uid;
+      allow read: if isAdmin() || (signedIn() && resource.data.uid == request.auth.uid);
 
-      allow update, delete: if false;
+      allow update, delete: if isAdmin();
     }
 
-    // Newsletter subscribers: create only. Read/update/delete from the console.
+    // ---- Newsletter subscribers ---------------------------------------------
     match /subscribers/{subscriberId} {
       allow create: if isValidEmail(request.resource.data.email);
 
-      allow read, update, delete: if false;
+      allow read, update, delete: if isAdmin();
+    }
+
+    // ---- Boost service catalogue (admin managed) ----------------------------
+    match /boostServices/{serviceId} {
+      allow read: if true;
+      allow create, update, delete: if isAdmin();
+    }
+
+    // ---- Orders -------------------------------------------------------------
+    match /orders/{orderId} {
+
+      // A signed-in client may open an order. Status and audit fields are
+      // pinned so they cannot be spoofed from the browser.
+      function validNewOrder() {
+        return signedIn()
+          && request.resource.data.uid == request.auth.uid
+          && request.resource.data.status == 'pending'
+          && request.resource.data.priority in ['urgent', 'high', 'normal', 'low']
+          && request.resource.data.serviceName is string
+          && request.resource.data.serviceName.size() <= 160
+          && isString(request.resource.data.targetLink, 500)
+          && isString(request.resource.data.contactPhone, 40)
+          && isString(request.resource.data.notes, 2000)
+          && request.resource.data.amount is number
+          && request.resource.data.amount >= 0
+          && request.resource.data.amount <= 1000000;
+      }
+
+      // Status values a client is never allowed to write.
+      function statusUntouched() {
+        return !('status' in request.resource.data.diff(resource.data).affectedKeys())
+          && !('history' in request.resource.data.diff(resource.data).affectedKeys())
+          && !('adminNote' in request.resource.data.diff(resource.data).affectedKeys())
+          && !('priority' in request.resource.data.diff(resource.data).affectedKeys());
+      }
+
+      allow create: if validNewOrder()
+                    || (isAdmin() && request.resource.data.status in
+                        ['pending', 'approved', 'rejected', 'ongoing', 'completed']);
+
+      allow read: if isAdmin() || (signedIn() && resource.data.uid == request.auth.uid);
+
+      // The admin drives the workflow: pending → approved/rejected →
+      // ongoing → completed. Rejected orders can be reopened.
+      allow update: if isAdmin()
+                    && request.resource.data.diff(resource.data).affectedKeys()
+                       .hasOnly(['status', 'priority', 'priorityRank', 'adminNote',
+                                 'history', 'updatedAt', 'updatedBy', 'approvedAt',
+                                 'rejectedAt', 'startedAt', 'completedAt']);
+
+      // Clients may only withdraw their own feedback fields (never status).
+      allow update: if signedIn()
+                    && resource.data.uid == request.auth.uid
+                    && statusUntouched();
+
+      allow delete: if isAdmin();
     }
 
     // Everything else is locked down by default.

@@ -41,9 +41,14 @@
      Nav state — swap "Client Login" for "Dashboard / Sign out"
      -------------------------------------------------------------------------- */
   function renderNavState(user) {
+    const admin = !!(user && window.SG && window.SG.isAdminUser && window.SG.isAdminUser(user));
     $$("[data-auth-when]").forEach((el) => {
       const want = el.dataset.authWhen;
-      const show = (want === "in" && !!user) || (want === "out" && !user);
+      let show;
+      if (want === "in") show = !!user;
+      else if (want === "out") show = !user;
+      else if (want === "admin") show = admin;
+      else show = true;
       el.classList.toggle("hide", !show);
     });
     $$("[data-user-name]").forEach((el) => {
@@ -135,10 +140,18 @@
           setAlert(alertEl, "Account created. Taking you to your dashboard…", "success");
           setTimeout(() => (location.href = "dashboard.html"), 900);
         } else if (mode === "login") {
-          await window.SG.signIn(email, password);
-          setAlert(alertEl, "Welcome back. Loading your dashboard…", "success");
-          const next = new URLSearchParams(location.search).get("next") || "dashboard.html";
-          setTimeout(() => (location.href = next), 700);
+          const user = await window.SG.signIn(email, password);
+          const explicit = new URLSearchParams(location.search).get("next");
+          const isOwner = window.SG.isAdminEmail && window.SG.isAdminEmail(user.email);
+          const dest = explicit || (isOwner ? "admin.html" : "dashboard.html");
+          setAlert(
+            alertEl,
+            isOwner && !explicit
+              ? "Welcome back, admin. Opening the admin console…"
+              : "Welcome back. Loading your dashboard…",
+            "success"
+          );
+          setTimeout(() => (location.href = dest), 700);
         } else {
           await window.SG.resetPassword(email);
           setAlert(
@@ -168,6 +181,33 @@
     if (h < 12) return "Good morning";
     if (h < 17) return "Good afternoon";
     return "Good evening";
+  }
+
+  /* Standard sign-in buttons (Google) available on the login page */
+  function initProviderButtons() {
+    $$("[data-google-signin]").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        const alertEl = $("[data-auth-alert]");
+        const original = btn.textContent;
+        btn.disabled = true;
+        btn.textContent = "Opening Google…";
+        try {
+          const user = await window.SG.signInWithGoogle();
+          const explicit = new URLSearchParams(location.search).get("next");
+          const isOwner = window.SG.isAdminEmail && window.SG.isAdminEmail(user.email);
+          location.href = explicit || (isOwner ? "admin.html" : "dashboard.html");
+        } catch (err) {
+          setAlert(
+            alertEl,
+            (window.SG.friendlyError && window.SG.friendlyError(err)) ||
+              "Google sign-in failed. Use your email and password instead.",
+            "error"
+          );
+          btn.disabled = false;
+          btn.textContent = original;
+        }
+      });
+    });
   }
 
   function initDashboard() {
@@ -261,6 +301,7 @@
   function boot() {
     initSignOut();
     initAuthForms();
+    initProviderButtons();
     initDashboard();
 
     window.SGOnReady(() => {
