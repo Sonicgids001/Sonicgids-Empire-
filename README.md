@@ -1,12 +1,12 @@
-# Sonicgids Empire — Social Media Marketing Agency Website
+# Sonicgids Empire — Social Growth Panel & Marketing Website
 
-Official website for **Sonicgids Empire**, a full-service social media marketing agency
-(strategy, content, paid media, SEO and influencer marketing).
+Official website for **Sonicgids Empire**. The site itself is **free to use**: visitors create a
+free account, sign in and land on a **social media boost panel** (SMM-panel style) where they pick
+a service, paste the link, enter a quantity and see the amount in **naira** calculated from the
+rate per 1,000 that the admin sets. There are **no subscriptions and no retainer plans**.
 
 Built as a **plain static site** — HTML, CSS and vanilla JavaScript, no build step and no
 dependencies to install. Deploy the folder anywhere; it runs as-is.
-
-> Replaced the original single `profile.html` page with a complete 27-page agency website.
 
 ---
 
@@ -14,7 +14,7 @@ dependencies to install. Deploy the folder anywhere; it runs as-is.
 
 | Page | File | Purpose |
 | --- | --- | --- |
-| Home | `index.html` | Hero, services, stats, process, proof, pricing teaser, FAQ |
+| Home | `index.html` | Hero, services, stats, process, proof, **live rate teaser**, FAQ |
 | Services overview | `services.html` | All five service lines + supporting work |
 | Social Media Management | `service-social.html` | Service detail with deliverables, process, FAQ |
 | Paid Advertising | `service-ads.html` | Service detail |
@@ -22,23 +22,42 @@ dependencies to install. Deploy the folder anywhere; it runs as-is.
 | SEO & Web | `service-seo.html` | Service detail |
 | Influencer Marketing | `service-influencer.html` | Service detail |
 | Case Studies | `case-studies.html` | Filterable results by industry |
-| Pricing | `pricing.html` | Monthly/quarterly tiers, comparison table, add-ons |
+| **Boost rate card** | `pricing.html` | Public, searchable naira rate table (rate per 1,000, min, max, start time) rendered live from the admin catalogue — no plans, no retainers |
 | Insights (blog) | `blog.html` | Featured post, category filter, newsletter |
 | Articles | `blog-*.html` (6) | Full articles: playbook, Instagram, Meta ads, hooks, metrics, local SEO |
 | About | `about.html` | Story, principles, team, timeline |
 | FAQ | `faq.html` | Grouped answers with FAQ schema |
 | Contact | `contact.html` | Brief form → Firestore, direct contact lines |
 | Thank you | `thank-you.html` | Post-submission confirmation |
-| Boost services / orders | `order.html` | Catalogue + order form (orders start as **pending**) |
-| Client login | `login.html` | Firebase email/password or Google sign-in |
+| **Boost panel** | `order.html` | Signed-in buy page: search plans → category → service → link → quantity → amount (₦) → **Continue** (orders start as **pending**) |
+| Sign in | `login.html` | Firebase email/password or Google sign-in |
 | Create account | `signup.html` | Firebase account creation |
 | Reset password | `forgot-password.html` | Password reset email |
-| Client dashboard | `dashboard.html` | Auth-gated panel: orders by status, objectives, roadmap |
-| **Admin console** | `admin.html` | **Owner-only.** Process orders, set boosting priorities, manage the catalogue |
+| Dashboard | `dashboard.html` | Auth-gated, tabbed: **Boost panel** (default) · My orders · Overview |
+| **Admin console** | `admin.html` | **Owner-only.** Process orders, **set the rate per 1,000 / min / max**, priorities and the catalogue |
 | 404 | `404.html` | Custom not-found page |
 | Legal | `privacy.html`, `terms.html` | Privacy policy and terms of service |
 
 Also included: `sitemap.xml`, `robots.txt`, `firebase.json`, `firestore.rules`, `firestore.indexes.json`, `tools/`.
+
+---
+
+## The money model (free site, paid boosts)
+
+| Question | Answer |
+| --- | --- |
+| Does the visitor pay to use the site? | **No.** Account, rate card, ordering and tracking are free. |
+| What do they pay for? | Only the boosts they order. |
+| How is a price formed? | `amount = quantity ÷ 1,000 × ratePer1000` — see `SG.orderTotal()`. |
+| Currency | **Nigerian Naira (₦)** everywhere — `SG.CURRENCY = "NGN"`, formatted by `SG.money()`. |
+| Who sets the rates? | **The admin**, per service, in the console (rate per 1,000, min, max, quality label). |
+| Where are rates shown? | `pricing.html` (public rate card), `order.html` + dashboard boost panel, homepage teaser. |
+| When is money taken? | Never on submit. Orders are created **pending**; payment details are sent after approval. |
+
+The boost panel is one shared component — `assets/js/panel.js` renders into any
+`[data-boost-panel]` element, so `order.html` and the dashboard **Boost** tab stay identical.
+Add `?preview=1` to either page to render the signed-in panel with the starter catalogue
+(no Firebase session needed); submitting still requires a real account.
 
 ---
 
@@ -58,22 +77,22 @@ can bypass it by editing the page source.
    with a **Send verification email** button when it isn't. Verified email is required because
    Firestore rules check `email_verified == true`.
 3. Anyone else who signs in sees *"This account does not have admin access"* and is offered
-   their client dashboard instead.
+   their dashboard instead.
 
 ### What the admin can do
 
 | Tab | What it does |
 | --- | --- |
 | **Overview** | Live counts: awaiting approval, in progress, completed, pipeline value + open queue sorted by priority and recent activity |
-| **Orders** | Filter by status (pending / approved / ongoing / completed / rejected), search by reference, client, service or link, and process each order |
-| **Boost services** | Add, edit, pause, delete boosting services and **set the processing priority** on each |
+| **Orders** | Filter by status (pending / approved / ongoing / completed / rejected), search by reference, customer, service or link, and process each order |
+| **Boost services** | Add, edit, pause, delete services and set the **rate per 1,000 (₦)**, **min/max quantity**, quality label, start time and **processing priority** on each |
 | **Leads** | Contact-form briefs with reply-by-email / WhatsApp buttons |
 | **Subscribers** | Newsletter list with a *copy all emails* button |
 
 ### Order workflow
 
 ```
-        ┌──────────── client submits ────────────┐
+        ┌──────────── user  submits ────────────┐
         ▼                                        │
    ┌─────────┐   admin    ┌──────────┐  admin ┌───────────┐  admin  ┌───────────┐
    │ PENDING │ ─────────▶ │ APPROVED │ ─────▶ │  ONGOING  │ ──────▶ │ COMPLETED │
@@ -88,13 +107,13 @@ can bypass it by editing the page source.
 
 * New orders are **always created with `status: "pending"`** — enforced by the security rules,
   not just the UI.
-* The admin can attach a **note to the client** with any status change (e.g. why an order was
+* The admin can attach a **note to the customer** with any status change (e.g. why an order was
   rejected).
 * Every change is appended to the order's `history` (status, timestamp, admin email, note) so
   there is a full audit trail.
 * The admin can also **override the priority of an individual order** at any time.
-* Clients follow along live: the status pill and the four-step progress track appear on their
-  dashboard and keep the client informed without any email chasing.
+* Users follow along live: the status pill and the four-step progress track appear on their
+  dashboard and keep them informed without any email chasing.
 
 ### Processing priorities
 
@@ -109,7 +128,9 @@ Normal → Low, then oldest first.
 | Normal | 3 | Standard turnaround |
 | Low | 4 | Fill-in work, processed last |
 
-The catalogue ships with 14 starter services, each with a sensible default priority. The console
+The catalogue ships with **22 starter services** (`SG.DEFAULT_SERVICES`) across Instagram, TikTok,
+YouTube, Facebook, X, Telegram, WhatsApp, music streaming, website traffic, comments and live
+streams — each with a naira rate per 1,000, min/max quantity and a default priority. The console
 offers a one-click **Import starter catalogue** when Firestore is empty; until then the site falls
 back to that built-in list so ordering works on day one.
 
@@ -123,19 +144,22 @@ back to that built-in list so ordering works on day one.
 ├── assets/
 │   ├── css/
 │   │   ├── style.css                   # Design tokens, layout, nav, footer, components
-│   │   └── pages.css                   # Pricing, case studies, blog, auth, dashboard
+│   │   ├── pages.css                   # Case studies, blog, auth, dashboard
+│   │   └── admin.css                   # Admin console, boost panel, rate card table
 │   └── js/
 │       ├── firebase.js                 # Firebase app, lazy SDK loader, window.SG API,
 │       │                               #   admin identity, boost services, order helpers
 │       ├── site.js                     # Nav, reveal animations, filters, accordions, toast
 │       ├── auth.js                     # Sign-up/in/out, nav auth state, dashboard
 │       ├── contact.js                  # Contact form → Firestore → thank-you.html
-│       ├── orders.js                   # Boost catalogue, order form, status rendering
-│       └── admin.js                    # Admin console: orders, priorities, catalogue
+│       ├── orders.js                   # Shared order renderers + dashboard order list
+│       ├── panel.js                    # The boost panel (buy page) — order.html + dashboard
+│       ├── rates.js                    # Public rate card (pricing.html) + home teaser
+│       └── admin.js                    # Admin console: orders, rates, priorities, catalogue
 ├── firebase.json                       # Firebase Hosting + Firestore config
 ├── .firebaserc                         # Default project: sonicgidsempire
 ├── firestore.rules                     # Security rules for leads / subscribers
-└── firestore.indexes.json              # Composite index for the client dashboard query
+└── firestore.indexes.json              # Composite index for the dashboard query
 ```
 
 Every page is self-contained: the shared header, footer and floating WhatsApp button are
@@ -208,14 +232,17 @@ The site uses the `sonicgidsempire` Firebase project. The web config lives at th
 | --- | --- | --- |
 | `leads` | `contact.html` brief form | `name`, `email`, `company`, `phone`, `service`, `budget`, `message`, `source`, `page`, `uid`, `createdAt` |
 | `subscribers` | Footer / blog newsletter | `email`, `page`, `createdAt` |
-| `orders` | `order.html` order form | `ref`, `uid`, `email`, `contactName`, `contactPhone`, `brand`, `serviceId`, `serviceName`, `platform`, `category`, `unit`, `packageLabel`, `quantity`, `amount`, `priority`, `priorityRank`, `targetLink`, `notes`, `status`, `adminNote`, `history[]`, `createdAt`, `updatedAt` |
-| `boostServices` | Admin console | `name`, `platform`, `category`, `unit`, `priceFrom`, `turnaround`, `priority`, `priorityRank`, `description`, `active`, `createdAt`, `updatedAt` |
+| `orders` | Boost panel (`order.html` / dashboard) | `ref`, `uid`, `email`, `contactName`, `contactPhone`, `brand`, `serviceId`, `serviceName`, `platform`, `category`, `unit`, `unitLabel`, `packageLabel`, `quantity`, `quantityNum`, `ratePer1000`, `currency`, `amount`, `priority`, `priorityRank`, `targetLink`, `notes`, `status`, `adminNote`, `history[]`, `createdAt`, `updatedAt` |
+| `boostServices` | Admin console | `name`, `platform`, `category`, `unit`, **`ratePer1000`**, `currency`, **`min`**, **`max`**, `type`, `priceFrom` (legacy mirror of the rate), `turnaround`, `priority`, `priorityRank`, `description`, `active`, `createdAt`, `updatedAt` |
 
 Security summary enforced by `firestore.rules`:
 
 * Anyone may **create** a lead or subscriber; only the admin may read them.
-* A signed-in client may create an order (pinned to `status: "pending"` and their own `uid`) and
+* A signed-in user may create an order (pinned to `status: "pending"` and their own `uid`) and
   read only their own orders. They can never write `status`, `history`, `adminNote` or `priority`.
+  `amount`, `ratePer1000` and `quantityNum` are validated as numbers, with a ₦500,000,000 ceiling.
+* Anyone may **read** `boostServices` — that is what makes the public rate card work — but only the
+  admin can create services or change a rate, min or max.
 * Only the verified owner address may read all orders, change statuses/priorities, or write the
   boosting catalogue.
 
@@ -244,7 +271,15 @@ SG.saveLead({ ... })                        // → leads collection
 SG.saveSubscriber(email)                    // → subscribers collection
 SG.myLeads()
 
+// money — naira, per 1,000
+SG.CURRENCY / SG.CURRENCY_SYMBOL            // "NGN" / "₦"
+SG.money(value)                             // 2500 → "₦2,500"
+SG.rateOf(service)                          // ratePer1000, falls back to legacy priceFrom
+SG.orderTotal(ratePer1000, quantity)        // (qty / 1000) × rate
+SG.serviceMin(service) / SG.serviceMax(service)
+
 // boost services
+SG.DEFAULT_SERVICES                         // 22 starter services with ₦ rates
 SG.PRIORITIES                               // urgent | high | normal | low
 SG.priorityRank(key) / SG.priorityLabel(key)
 SG.listBoostServices(activeOnly)
@@ -313,10 +348,15 @@ Update these in one place per page — the footer, contact page and service CTAs
 - [ ] `firebase deploy --only firestore:rules` and confirm the rules upload without errors
 - [ ] Sign in at `/admin.html` with the owner account and confirm the console loads
 - [ ] Sign in with a *different* account and confirm it is refused admin access
-- [ ] **Boost services → Import starter catalogue**, then set a couple of priorities
-- [ ] Create a test client account and place an order — confirm it saves as **pending**
-- [ ] In the admin console: approve it → start it → complete it, and watch the client dashboard update
-- [ ] Reject an order with a note and confirm the client sees the reason
+- [ ] **Boost services → Import starter catalogue**, then check a rate per 1,000, min/max and priority
+- [ ] Open `/pricing.html` logged out and confirm the live rate table shows the same ₦ rates
+- [ ] Open `/order.html?preview=1` to review the boost panel layout without signing in
+- [ ] Create a test account, pick a service, enter a quantity and confirm the **amount (₦)** = qty ÷ 1,000 × rate
+- [ ] Try a quantity below the minimum and above the maximum — both must be blocked with a message
+- [ ] Place the order and confirm it saves as **pending** with `ratePer1000` and `quantityNum` set
+- [ ] Confirm the dashboard **Boost** tab and **My orders** tab both update after ordering
+- [ ] In the admin console: approve it → start it → complete it, and watch the dashboard update
+- [ ] Reject an order with a note and confirm the customer sees the reason
 - [ ] Submit the contact form and confirm the entry appears in Firestore → `leads` and under the Leads tab
 - [ ] Subscribe through the footer newsletter and check `subscribers`
 - [ ] Visit a non-existent URL to see `404.html`

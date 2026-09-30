@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Client Dashboard | Sonicgids Empire</title>
+<title>Dashboard — Boost Panel & Order Tracking | Sonicgids Empire</title>
 <meta name="description" content="Your campaign performance, objectives, roadmap and briefs in one secure dashboard.">
 <meta name="author" content="Sonicgids Empire">
 <meta name="theme-color" content="#07070a">
@@ -12,12 +12,12 @@
 
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Sonicgids Empire">
-<meta property="og:title" content="Client Dashboard | Sonicgids Empire">
+<meta property="og:title" content="Dashboard — Boost Panel & Order Tracking | Sonicgids Empire">
 <meta property="og:description" content="Your campaign performance, objectives, roadmap and briefs in one secure dashboard.">
 <meta property="og:url" content="https://sonicgidsempire.web.app/dashboard.html">
 <meta property="og:image" content="https://res.cloudinary.com/wfcrf1ps/image/upload/f_auto,q_auto/WhatsApp_Image_2026-08-15_at_3.27.38_PM">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="Client Dashboard | Sonicgids Empire">
+<meta name="twitter:title" content="Dashboard — Boost Panel & Order Tracking | Sonicgids Empire">
 <meta name="twitter:description" content="Your campaign performance, objectives, roadmap and briefs in one secure dashboard.">
 <meta name="twitter:image" content="https://res.cloudinary.com/wfcrf1ps/image/upload/f_auto,q_auto/WhatsApp_Image_2026-08-15_at_3.27.38_PM">
 
@@ -29,6 +29,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@500;600;700;800;900&family=Playfair+Display:ital,wght@1,500;1,600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="assets/css/style.css">
 <link rel="stylesheet" href="assets/css/pages.css">
+<link rel="stylesheet" href="assets/css/admin.css">
 
 </head>
 <body data-page="dashboard">
@@ -56,14 +57,14 @@
           </div>
         </div>
         <a class="nav-link" href="case-studies.html">Case Studies</a>
-        <a class="nav-link" href="pricing.html">Pricing</a>
+        <a class="nav-link" href="pricing.html">Boost Rates</a>
         <a class="nav-link" href="blog.html">Insights</a>
         <a class="nav-link" href="about.html">About</a>
         <a class="nav-link" href="contact.html">Contact</a>
       </div>
       <div class="nav-actions">
-        <a class="btn btn-ghost btn-sm" href="login.html" data-auth-when="out">Client Login</a>
-        <a class="btn btn-ghost btn-sm hide" href="order.html" data-auth-when="in">Order Boost</a>
+        <a class="btn btn-ghost btn-sm" href="login.html" data-auth-when="out">Sign In</a>
+        <a class="btn btn-ghost btn-sm hide" href="order.html" data-auth-when="in">Boost Panel</a>
         <a class="btn btn-ghost btn-sm hide" href="dashboard.html" data-auth-when="in">Dashboard</a>
         <a class="btn btn-ghost btn-sm hide" href="admin.html" data-auth-when="admin">Admin</a>
         <a class="btn btn-gold btn-sm" href="contact.html">Free Audit</a>
@@ -88,15 +89,15 @@
         <a href="services.html">All Services</a>
       </div>
       <a href="case-studies.html">Case Studies</a>
-      <a href="pricing.html">Pricing</a>
+      <a href="pricing.html">Boost Rates</a>
       <a href="blog.html">Insights</a>
       <a href="about.html">About</a>
       <a href="contact.html">Contact</a>
     <div class="m-actions">
       <a class="btn btn-gold btn-block" href="contact.html">Book a Free Audit</a>
-      <a class="btn btn-ghost btn-block" href="order.html" data-auth-when="in">Order a Boost Service</a>
-      <a class="btn btn-ghost btn-block" href="login.html" data-auth-when="out">Client Login</a>
-      <a class="btn btn-ghost btn-block" href="dashboard.html" data-auth-when="in">Client Dashboard</a>
+      <a class="btn btn-ghost btn-block" href="order.html" data-auth-when="in">Open the Boost Panel</a>
+      <a class="btn btn-ghost btn-block" href="login.html" data-auth-when="out">Sign In</a>
+      <a class="btn btn-ghost btn-block" href="dashboard.html" data-auth-when="in">My Dashboard</a>
       <a class="btn btn-ghost btn-block" href="admin.html" data-auth-when="admin">Admin Console</a>
       <button class="btn btn-white btn-block" type="button" data-sign-out data-auth-when="in">Sign Out</button>
       <a class="btn btn-white btn-block" href="https://wa.me/2347038322626" target="_blank" rel="noopener">WhatsApp Us</a>
@@ -113,13 +114,13 @@
 
     <div data-dashboard-gate class="hide">
       <div class="auth-card" style="max-width:520px;margin:40px auto">
-        <h2>Sign in to view your dashboard</h2>
-        <p class="sub">Your campaign numbers, reports and briefs live behind a secure login.</p>
+        <h2>Sign in to boost your accounts</h2>
+        <p class="sub">The boost panel and your order history live behind a free login.</p>
         <div class="btn-row" style="display:grid;gap:10px">
-          <a class="btn btn-gold btn-block btn-lg" href="login.html?next=dashboard.html">Client sign in</a>
-          <a class="btn btn-ghost btn-block" href="signup.html">Create an account</a>
+          <a class="btn btn-gold btn-block btn-lg" href="login.html?next=dashboard.html">Sign in</a>
+          <a class="btn btn-ghost btn-block" href="signup.html">Create a free account</a>
         </div>
-        <p class="form-note mt-3">Not a client yet? <a href="contact.html">Book a free audit</a>.</p>
+        <p class="form-note mt-3">Want to see the rates first? <a href="pricing.html">Open the rate card</a>.</p>
       </div>
     </div>
 
@@ -134,7 +135,7 @@
         </div>
         <div class="btn-row">
           <a class="btn btn-gold" href="order.html">+ New boost order</a>
-          <a class="btn btn-ghost" href="contact.html">Submit a brief</a>
+          <a class="btn btn-ghost" href="pricing.html">Rate card</a>
           <a class="btn btn-ghost hide" href="admin.html" data-auth-when="admin">Admin console</a>
           <button class="btn btn-white" type="button" data-sign-out data-redirect="index.html">Sign out</button>
         </div>
@@ -164,25 +165,41 @@
           <div class="delta">Delivered for you</div>
         </div>
         <div class="dash-stat">
-          <div class="label">Order value</div>
-          <div class="value" data-order-stat="value">$0</div>
+          <div class="label">Order value (₦)</div>
+          <div class="value" data-order-stat="value">₦0</div>
           <div class="delta">Approved + completed</div>
         </div>
       </div>
 
-      <div class="card card-solid mt-3">
+      <div class="dash-tabs" role="tablist" aria-label="Dashboard sections">
+        <button class="dash-tab active" type="button" role="tab" data-dash-tab="boost">🚀 Boost services</button>
+        <button class="dash-tab" type="button" role="tab" data-dash-tab="orders">📦 My orders</button>
+        <button class="dash-tab" type="button" role="tab" data-dash-tab="overview">📊 Overview</button>
+      </div>
+
+      <!-- ---------- Boost panel (default tab) ---------- -->
+      <div class="dash-view" data-dash-view="boost">
+        <div data-boost-panel></div>
+      </div>
+
+      <!-- ---------- Orders ---------- -->
+      <div class="dash-view hide" data-dash-view="orders">
+      <div class="card card-solid">
         <div style="display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap">
           <div>
             <h3>Your boost orders</h3>
             <p class="small muted mt-1">Every order starts as <strong>pending</strong>. Track it as our team approves, starts and completes the work.</p>
           </div>
-          <a class="btn btn-gold btn-sm" href="order.html">Order a boost service</a>
+          <a class="btn btn-gold btn-sm" href="order.html">Open the boost panel</a>
         </div>
         <div class="mt-3" data-dashboard-orders>
           <div class="task-row"><span class="task-dot wait"></span><span>Loading your orders…</span></div>
         </div>
       </div>
+      </div>
 
+      <!-- ---------- Overview ---------- -->
+      <div class="dash-view hide" data-dash-view="overview">
       <div class="dash-cols">
         <div class="card card-solid">
           <div style="display:flex;justify-content:space-between;align-items:center;gap:12px">
@@ -232,9 +249,9 @@
         <div class="card card-solid">
           <h3>Quick actions</h3>
           <div class="btn-row" style="display:grid;gap:10px" class="mt-2">
-            <a class="btn btn-gold btn-block" href="contact.html">New campaign brief</a>
+            <a class="btn btn-gold btn-block" href="order.html">New boost order</a>
             <a class="btn btn-ghost btn-block" href="https://wa.me/2347038322626" target="_blank" rel="noopener">Message your manager</a>
-            <a class="btn btn-white btn-block" href="case-studies.html">Browse case studies</a>
+            <a class="btn btn-white btn-block" href="pricing.html">Browse all rates</a>
           </div>
           <p class="small muted mt-3">Metrics shown here sync from your connected platforms at the start of each month. Anything urgent is shared in your client channel first.</p>
         </div>
@@ -248,6 +265,7 @@
           <a class="btn btn-ghost btn-sm" href="https://wa.me/2347038322626" target="_blank" rel="noopener">WhatsApp us</a>
           <a class="btn btn-ghost btn-sm" href="faq.html">Read the FAQ</a>
         </div>
+      </div>
       </div>
     </div>
   </div>
@@ -292,7 +310,7 @@
         <ul>
           <li><a href="about.html">About Us</a></li>
           <li><a href="case-studies.html">Case Studies</a></li>
-          <li><a href="pricing.html">Pricing</a></li>
+          <li><a href="pricing.html">Boost Rates</a></li>
           <li><a href="blog.html">Insights</a></li>
           <li><a href="faq.html">FAQ</a></li>
           <li><a href="contact.html">Contact</a></li>
@@ -300,12 +318,12 @@
       </div>
 
       <div class="footer-col">
-        <h4>Client Area</h4>
+        <h4>Your Account</h4>
         <ul>
-          <li><a href="order.html">Boost Services</a></li>
-          <li><a href="login.html">Client Login</a></li>
+          <li><a href="order.html">Boost Panel</a></li>
+          <li><a href="login.html">Sign In</a></li>
           <li><a href="signup.html">Create Account</a></li>
-          <li><a href="dashboard.html">Client Dashboard</a></li>
+          <li><a href="dashboard.html">My Dashboard</a></li>
           <li><a href="privacy.html">Privacy Policy</a></li>
           <li><a href="terms.html">Terms of Service</a></li>
         </ul>
@@ -338,5 +356,6 @@
 <script src="assets/js/site.js"></script>
 <script src="assets/js/auth.js"></script>
 <script src="assets/js/orders.js"></script>
+<script src="assets/js/panel.js"></script>
 </body>
 </html>

@@ -1,6 +1,7 @@
 /* ==========================================================================
    SONICGIOS EMPIRE — Orders (client side)
-   • order.html  : boost-service catalogue + order form (saved as "pending")
+   • order.html  : the SMM-style boost panel lives in assets/js/panel.js
+   • this file   : shared order renderers + the dashboard order list
    • dashboard   : the signed-in client's order list with live status
    Shared status helpers are exposed on window.SGOrders for reuse.
    ========================================================================== */
@@ -19,8 +20,9 @@
     rejected: { label: "Rejected", cls: "status-rejected", step: -1, icon: "⛔" }
   };
 
+  /* All money on this site is Nigerian Naira, formatted by the shared helper. */
   const money = (n) =>
-    "$" + (Number(n) || 0).toLocaleString("en-US", { maximumFractionDigits: 2 });
+    window.SG && SG.money ? SG.money(n) : "\u20A6" + (Number(n) || 0).toLocaleString("en-NG");
 
   const dateStr = (value) => {
     if (!value) return "—";
@@ -93,7 +95,8 @@
       </div>
 
       <div class="order-facts">
-        <div><span class="of-label">Estimated value</span><strong>${money(o.amount)}</strong></div>
+        <div><span class="of-label">Amount</span><strong>${money(o.amount)}</strong></div>
+        ${o.ratePer1000 ? `<div><span class="of-label">Rate</span><strong>${money(o.ratePer1000)} / 1,000</strong></div>` : ""}
         <div><span class="of-label">Placed</span><strong>${dateStr(o.createdAt)}</strong></div>
         <div><span class="of-label">Target</span><strong class="of-link">${esc(o.targetLink || "—")}</strong></div>
         ${admin ? `<div><span class="of-label">Client</span><strong>${esc(o.contactName || "—")}${o.contactPhone ? " · " + esc(o.contactPhone) : ""}</strong></div>` : ""}
@@ -120,7 +123,7 @@
           <div class="empty-icon">📦</div>
           <h3>No orders yet</h3>
           <p>Place your first boost order and track it here — from pending review through to completed.</p>
-          <a class="btn btn-gold mt-2" href="order.html">Browse boost services</a>
+          <a class="btn btn-gold mt-2" href="order.html">Open the boost panel</a>
         </div>`;
       return;
     }
@@ -141,217 +144,42 @@
   };
 
   /* ------------------------------------------------------------------ */
-  /* Order form page                                                     */
-  /* ------------------------------------------------------------------ */
-  function initOrderPage() {
-    const form = $("[data-order-form]");
-    if (!form) return;
-
-    const grid = $("[data-order-service-grid]");
-    const alertEl = $("[data-order-alert]");
-    const gate = $("[data-order-gate]");
-    const panel = $("[data-order-panel]");
-    const success = $("[data-order-success]");
-    const summary = $("[data-order-summary]");
-    const submit = $('button[type="submit"]', form);
-
-    let services = [];
-    let selected = null;
-
-    const setAlert = (msg, type) => {
-      if (!alertEl) return;
-      alertEl.className = "alert show alert-" + (type || "error");
-      alertEl.textContent = msg;
-      alertEl.scrollIntoView({ behavior: "smooth", block: "center" });
-    };
-    const clearAlert = () => { if (alertEl) alertEl.className = "alert"; };
-
-    function renderServices() {
-      if (!grid) return;
-      grid.innerHTML = services
-        .map(
-          (s, i) => `
-        <button type="button" class="service-pick reveal" data-service-id="${esc(s.id)}" data-index="${i}">
-          <span class="sp-top">
-            <span class="sp-platform">${esc(s.platform || s.category || "Boost")}</span>
-            ${s.priority === "urgent" || s.priority === "high"
-              ? '<span class="sp-fast">Priority queue</span>'
-              : ""}
-          </span>
-          <span class="sp-name">${esc(s.name)}</span>
-          <span class="sp-desc">${esc(s.description || "")}</span>
-          <span class="sp-foot">
-            <span class="sp-price">from ${money(s.priceFrom)}</span>
-            <span class="sp-unit">${esc(s.unit || "")}</span>
-          </span>
-          <span class="sp-time">⏱ ${esc(s.turnaround || "Turnaround on request")}</span>
-        </button>`
-        )
-        .join("");
-    }
-
-    function selectService(id) {
-      selected = services.find((s) => String(s.id) === String(id)) || null;
-      $$(".service-pick", grid).forEach((el) =>
-        el.classList.toggle("selected", el.dataset.serviceId === String(id))
-      );
-      updateSummary();
-    }
-
-    function updateSummary() {
-      if (!summary) return;
-      if (!selected) {
-        summary.innerHTML = `<p class="muted small">Choose a boost service to see your order summary.</p>`;
-        return;
-      }
-      const qty = Math.max(1, parseInt($('input[name="quantity"]', form).value, 10) || 1);
-      const total = (Number(selected.priceFrom) || 0) * qty;
-      summary.innerHTML = `
-        <div class="summary-row"><span>Service</span><strong>${esc(selected.name)}</strong></div>
-        <div class="summary-row"><span>Platform</span><strong>${esc(selected.platform || "—")}</strong></div>
-        <div class="summary-row"><span>Package</span><strong>${esc($('select[name="packageLabel"]', form).value)}</strong></div>
-        <div class="summary-row"><span>Volume</span><strong>${qty.toLocaleString("en-US")} × ${esc(selected.unit || "unit")}</strong></div>
-        <div class="summary-row total"><span>Estimated total</span><strong>${money(total)}</strong></div>
-        <p class="small muted mt-1">Processing priority is set by our team when the order is reviewed. Final pricing is confirmed on approval.</p>`;
-    }
-
-    if (grid) {
-      grid.addEventListener("click", (e) => {
-        const btn = e.target.closest(".service-pick");
-        if (btn) {
-          selectService(btn.dataset.serviceId);
-          const details = $("[data-order-details]");
-          if (details) details.scrollIntoView({ behavior: "smooth", block: "start" });
-        }
-      });
-    }
-
-    form.addEventListener("input", (e) => {
-      if (e.target.name === "quantity" || e.target.name === "packageLabel") updateSummary();
-    });
-
-    form.addEventListener("submit", async (e) => {
-      e.preventDefault();
-      clearAlert();
-
-      if (!selected) return setAlert("Please choose a boost service first.", "error");
-
-      const data = Object.fromEntries(new FormData(form).entries());
-      const targetLink = (data.targetLink || "").trim();
-      const contactName = (data.contactName || "").trim();
-      const quantity = Math.max(1, parseInt(data.quantity, 10) || 1);
-
-      if (contactName.length < 2) return setAlert("Please add the name we should contact.", "error");
-      if (!/^[\d+\s()-]{7,20}$/.test((data.contactPhone || "").trim()))
-        return setAlert("Please add a phone or WhatsApp number we can reach you on.", "error");
-      if (targetLink.length < 4) return setAlert("Add the link or @handle we should boost.", "error");
-      if (data.agree !== "on") return setAlert("Please confirm the order terms to continue.", "error");
-
-      submit.disabled = true;
-      const original = submit.textContent;
-      submit.textContent = "Placing your order…";
-
-      try {
-        const res = await window.SG.createOrder({
-          serviceId: selected.id,
-          serviceName: selected.name,
-          platform: selected.platform,
-          category: selected.category,
-          unit: selected.unit,
-          priority: selected.priority || "normal",
-          packageLabel: data.packageLabel || "Standard package",
-          quantity: quantity + " × " + (selected.unit || "unit"),
-          amount: (Number(selected.priceFrom) || 0) * quantity,
-          targetLink,
-          contactName,
-          contactPhone: data.contactPhone,
-          brand: data.brand || "",
-          notes: data.notes || ""
-        });
-
-        form.classList.add("hide");
-        if (summary && summary.closest(".order-summary-card")) {
-          summary.closest(".order-summary-card").classList.add("hide");
-        }
-        if (success) {
-          success.classList.remove("hide");
-          const refEl = $("[data-order-ref]", success);
-          if (refEl) refEl.textContent = res.ref;
-          success.scrollIntoView({ behavior: "smooth", block: "center" });
-        }
-        window.sgToast && window.sgToast("Order placed — status: pending review.");
-      } catch (err) {
-        const msg =
-          (window.SG.friendlyDbError && window.SG.friendlyDbError(err)) ||
-          (err && err.message) || "We couldn't place your order. Please try again.";
-        setAlert(msg, "error");
-        submit.disabled = false;
-        submit.textContent = original;
-      }
-    });
-
-    window.SGOnReady(() => {
-      window.SG.onUser(async (user) => {
-        if (!user) {
-          if (gate) gate.classList.remove("hide");
-          if (panel) panel.classList.add("hide");
-          return;
-        }
-        if (gate) gate.classList.add("hide");
-        if (panel) panel.classList.remove("hide");
-
-        const nameField = $('input[name="contactName"]', form);
-        if (nameField && !nameField.value) {
-          nameField.value = user.displayName || (user.email || "").split("@")[0];
-        }
-
-        try {
-          services = await window.SG.listBoostServices(true);
-          renderServices();
-          if (services.length) {
-            const wanted = new URLSearchParams(location.search).get("service");
-            const match = wanted
-              ? services.find((s) => s.name.toLowerCase() === wanted.toLowerCase())
-              : null;
-            selectService(match ? match.id : services[0].id);
-          }
-        } catch (err) {
-          setAlert("Boost services could not be loaded. Please refresh the page.", "error");
-        }
-      });
-    });
-  }
-
-  /* ------------------------------------------------------------------ */
   /* Dashboard order list                                                */
   /* ------------------------------------------------------------------ */
   function initDashboardOrders() {
     const container = $("[data-dashboard-orders]");
     if (!container) return;
 
+    async function load() {
+      if (!window.SG.currentUser) return;
+      try {
+        const orders = await window.SG.myOrders();
+        renderList(container, orders);
+        const s = summarise(orders);
+        $$("[data-order-stat]").forEach((el) => {
+          const key = el.dataset.orderStat;
+          el.textContent = key === "value" ? money(s.value) : String(s[key] || 0);
+        });
+      } catch (err) {
+        container.innerHTML = `<div class="alert show alert-error">${
+          (window.SG.friendlyDbError && window.SG.friendlyDbError(err)) ||
+          "Orders could not be loaded right now."
+        }</div>`;
+      }
+    }
+
     window.SGOnReady(() => {
-      window.SG.onUser(async (user) => {
+      window.SG.onUser((user) => {
         if (!user) return;
-        try {
-          const orders = await window.SG.myOrders();
-          renderList(container, orders);
-          const s = summarise(orders);
-          $$("[data-order-stat]").forEach((el) => {
-            const key = el.dataset.orderStat;
-            el.textContent = key === "value" ? money(s.value) : String(s[key] || 0);
-          });
-        } catch (err) {
-          container.innerHTML = `<div class="alert show alert-error">${
-            (window.SG.friendlyDbError && window.SG.friendlyDbError(err)) ||
-            "Orders could not be loaded right now."
-          }</div>`;
-        }
+        load();
       });
     });
+
+    /* Fired by the boost panel (via auth.js) right after an order is placed. */
+    document.addEventListener("sg:refresh-orders", () => setTimeout(load, 600));
   }
 
   function boot() {
-    initOrderPage();
     initDashboardOrders();
   }
 
