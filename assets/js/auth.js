@@ -210,6 +210,45 @@
     });
   }
 
+  /* --------------------------------------------------------------------------
+     Dashboard tabs — the boost panel is the default view.
+     Supports ?tab=orders / ?tab=overview deep links.
+     -------------------------------------------------------------------------- */
+  function initDashboardTabs() {
+    const bar = document.querySelector("[data-dash-tab]");
+    if (!bar) return;
+    const tabs = Array.from(document.querySelectorAll("[data-dash-tab]"));
+    const views = Array.from(document.querySelectorAll("[data-dash-view]"));
+
+    function showTab(key) {
+      const wanted = views.some((v) => v.dataset.dashView === key) ? key : "boost";
+      tabs.forEach((t) => {
+        const on = t.dataset.dashTab === wanted;
+        t.classList.toggle("active", on);
+        t.setAttribute("aria-selected", on ? "true" : "false");
+      });
+      views.forEach((v) => v.classList.toggle("hide", v.dataset.dashView !== wanted));
+    }
+
+    tabs.forEach((t) =>
+      t.addEventListener("click", () => {
+        showTab(t.dataset.dashTab);
+        if (history.replaceState) {
+          const url = new URL(location.href);
+          url.searchParams.set("tab", t.dataset.dashTab);
+          history.replaceState({}, "", url);
+        }
+      })
+    );
+
+    showTab(new URLSearchParams(location.search).get("tab") || "boost");
+
+    /* Refresh the order list straight after a boost is placed from the panel. */
+    document.addEventListener("sg:order-placed", () => {
+      document.dispatchEvent(new CustomEvent("sg:refresh-orders"));
+    });
+  }
+
   function initDashboard() {
     const root = $("[data-dashboard]");
     if (!root) return;
@@ -303,6 +342,7 @@
     initAuthForms();
     initProviderButtons();
     initDashboard();
+    initDashboardTabs();
 
     window.SGOnReady(() => {
       window.SG.onUser(renderNavState);

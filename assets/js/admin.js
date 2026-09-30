@@ -21,7 +21,9 @@
       .replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 
   const U = window.SGOrders || {};
-  const money = U.money || ((n) => "$" + (Number(n) || 0));
+  /* Everything is in naira now — SG.money is the single formatter. */
+  const money = (n) =>
+    window.SG && SG.money ? SG.money(n) : (U.money ? U.money(n) : "\u20A6" + (Number(n) || 0));
   const dateStr = U.dateStr || ((v) => String(v || "—"));
 
   const state = {
@@ -380,7 +382,7 @@
       listEl.innerHTML = `<div class="empty-state">
         <div class="empty-icon">✨</div>
         <h3>No boosting services yet</h3>
-        <p>Import our starter catalogue of 14 boost services, then adjust prices and priorities.</p>
+        <p>Import the starter catalogue of boost services with naira rates per 1,000, then adjust rates, limits and priorities.</p>
         <button class="btn btn-gold mt-2" data-seed-services>Import starter catalogue</button>
       </div>`;
       return;
@@ -392,11 +394,12 @@
         (s) => `
       <div class="service-row ${s.active === false ? "paused" : ""}">
         <div class="sr-main">
-          <div class="sr-name">${esc(s.name)} ${s.active === false ? '<span class="chip chip-soft">Paused</span>' : ""}</div>
+          <div class="sr-name">${esc(s.name)} ${s.type ? `<span class="chip chip-soft">${esc(s.type)}</span>` : ""} ${s.active === false ? '<span class="chip chip-soft">Paused</span>' : ""}</div>
           <div class="sr-meta">
             <span>${esc(s.platform || "—")}</span><span class="dot-sep"></span>
             <span>${esc(s.category || "—")}</span><span class="dot-sep"></span>
-            <span>from ${money(s.priceFrom)} / ${esc(s.unit || "unit")}</span><span class="dot-sep"></span>
+            <span>${money(window.SG.rateOf(s))} / 1,000 ${esc(s.unit || "units")}</span><span class="dot-sep"></span>
+            <span>min ${Number(window.SG.serviceMin(s)).toLocaleString("en-US")} · max ${Number(window.SG.serviceMax(s)).toLocaleString("en-US")}</span><span class="dot-sep"></span>
             <span>⏱ ${esc(s.turnaround || "—")}</span>
           </div>
         </div>
@@ -447,7 +450,7 @@
         const del = e.target.closest("[data-service-delete]");
 
         if (seed) {
-          if (!confirm("Import the 14 starter boost services?")) return;
+          if (!confirm("Import the starter boost catalogue with its naira rates?")) return;
           try {
             const n = await window.SG.adminSeedServices();
             toast(`${n} services imported.`);
@@ -479,7 +482,9 @@
           $("[data-service-form-title]").textContent = "Edit service";
           Object.entries({
             name: svc.name, platform: svc.platform, category: svc.category, unit: svc.unit,
-            priceFrom: svc.priceFrom, turnaround: svc.turnaround, priority: svc.priority,
+            ratePer1000: window.SG.rateOf(svc), priceFrom: window.SG.rateOf(svc),
+            min: window.SG.serviceMin(svc), max: window.SG.serviceMax(svc),
+            type: svc.type, turnaround: svc.turnaround, priority: svc.priority,
             description: svc.description
           }).forEach(([k, v]) => {
             const field = $(`[name="${k}"]`, form);
@@ -521,9 +526,14 @@
         btn.disabled = true;
         btn.textContent = "Saving…";
         try {
+          const rate = Number(data.ratePer1000) || 0;
           await window.SG.adminSaveService(state.editingServiceId, {
             ...data,
-            priceFrom: Number(data.priceFrom) || 0,
+            ratePer1000: rate,
+            priceFrom: rate,
+            min: Math.max(1, parseInt(data.min, 10) || 1),
+            max: Math.max(1, parseInt(data.max, 10) || 1000000),
+            type: (data.type || "").trim(),
             active: data.active === "on"
           });
           toast(state.editingServiceId ? "Service updated." : "Service added.");

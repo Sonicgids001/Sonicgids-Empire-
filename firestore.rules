@@ -63,6 +63,8 @@ service cloud.firestore {
     }
 
     // ---- Boost service catalogue (admin managed) ----------------------------
+    // Public read: pricing.html renders the live rate card from this collection.
+    // Only the admin can create services or change ratePer1000 / min / max.
     match /boostServices/{serviceId} {
       allow read: if true;
       allow create, update, delete: if isAdmin();
@@ -70,6 +72,12 @@ service cloud.firestore {
 
     // ---- Orders -------------------------------------------------------------
     match /orders/{orderId} {
+
+      // Naira amounts: quantity/1000 x the admin-set rate per 1,000.
+      // Cap = ₦500,000,000, far above any realistic boost order.
+      function isMoney(value) {
+        return value is number && value >= 0 && value <= 500000000;
+      }
 
       // A signed-in client may open an order. Status and audit fields are
       // pinned so they cannot be spoofed from the browser.
@@ -83,9 +91,13 @@ service cloud.firestore {
           && isString(request.resource.data.targetLink, 500)
           && isString(request.resource.data.contactPhone, 40)
           && isString(request.resource.data.notes, 2000)
-          && request.resource.data.amount is number
-          && request.resource.data.amount >= 0
-          && request.resource.data.amount <= 1000000;
+          && isMoney(request.resource.data.amount)
+          && (!('ratePer1000' in request.resource.data)
+              || isMoney(request.resource.data.ratePer1000))
+          && (!('quantityNum' in request.resource.data)
+              || (request.resource.data.quantityNum is number
+                  && request.resource.data.quantityNum >= 0
+                  && request.resource.data.quantityNum <= 100000000));
       }
 
       // Status values a client is never allowed to write.
@@ -108,7 +120,9 @@ service cloud.firestore {
                     && request.resource.data.diff(resource.data).affectedKeys()
                        .hasOnly(['status', 'priority', 'priorityRank', 'adminNote',
                                  'history', 'updatedAt', 'updatedBy', 'approvedAt',
-                                 'rejectedAt', 'startedAt', 'completedAt']);
+                                 'rejectedAt', 'startedAt', 'completedAt',
+                                 'amount', 'ratePer1000', 'quantity', 'quantityNum',
+                                 'packageLabel', 'targetLink', 'notes']);
 
       // Clients may only withdraw their own feedback fields (never status).
       allow update: if signedIn()

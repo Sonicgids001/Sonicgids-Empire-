@@ -292,6 +292,47 @@ SG.sendVerificationEmail = async function () {
 };
 
 /* ==========================================================================
+   MONEY — every rate on this site is in Nigerian Naira (₦) per 1,000 units.
+   Rates are set by the admin in the console (boostServices.ratePer1000).
+   ========================================================================== */
+SG.CURRENCY = "NGN";
+SG.CURRENCY_SYMBOL = "\u20A6";
+
+/* Naira amount, e.g. 2500 -> "₦2,500" */
+SG.money = function (value) {
+  const n = Number(value);
+  const safe = isNaN(n) ? 0 : n;
+  return SG.CURRENCY_SYMBOL + safe.toLocaleString("en-NG", { maximumFractionDigits: 2 });
+};
+
+/* Rate for 1,000 units. Falls back to the legacy priceFrom field so services
+   created before the naira switch keep showing a number. */
+SG.rateOf = function (service) {
+  if (!service) return 0;
+  if (service.ratePer1000 != null && !isNaN(Number(service.ratePer1000))) {
+    return Number(service.ratePer1000);
+  }
+  return Number(service.priceFrom) || 0;
+};
+
+/* Order cost = (quantity / 1000) x rate per 1000, rounded to 2dp. */
+SG.orderTotal = function (ratePer1000, quantity) {
+  const rate = Number(ratePer1000) || 0;
+  const qty = Math.max(0, Number(quantity) || 0);
+  return Math.round((qty / 1000) * rate * 100) / 100;
+};
+
+SG.serviceMin = function (service) {
+  const min = Number(service && service.min);
+  return !isNaN(min) && min > 0 ? min : 1;
+};
+
+SG.serviceMax = function (service) {
+  const max = Number(service && service.max);
+  return !isNaN(max) && max > 0 ? max : 100000000;
+};
+
+/* ==========================================================================
    BOOST SERVICES CATALOGUE
    Admin-managed list of boosting services with a processing priority that
    drives the order queue (urgent → high → normal → low).
@@ -314,20 +355,28 @@ SG.priorityLabel = function (key) {
 };
 
 SG.DEFAULT_SERVICES = [
-  { name: "Instagram Followers Boost", platform: "Instagram", category: "Followers", unit: "1,000 followers", priceFrom: 25, turnaround: "24–72 hours", priority: "high", description: "Targeted follower growth for a profile or brand page, delivered gradually to stay within platform limits." },
-  { name: "Instagram Likes & Views", platform: "Instagram", category: "Engagement", unit: "1,000 likes + 5,000 views", priceFrom: 12, turnaround: "6–24 hours", priority: "high", description: "Instant engagement on reels and posts to lift the algorithm's early signals." },
-  { name: "Instagram Story Views & Polls", platform: "Instagram", category: "Engagement", unit: "5,000 story views", priceFrom: 18, turnaround: "12–48 hours", priority: "normal", description: "Story views plus poll and sticker engagement to strengthen your daily reach." },
-  { name: "TikTok Views & Likes", platform: "TikTok", category: "Engagement", unit: "10,000 views", priceFrom: 15, turnaround: "6–24 hours", priority: "urgent", description: "Fast view delivery on new uploads to trigger the For You distribution test." },
-  { name: "TikTok Followers Boost", platform: "TikTok", category: "Followers", unit: "1,000 followers", priceFrom: 30, turnaround: "24–72 hours", priority: "high", description: "Gradual follower growth with geo and interest targeting available." },
-  { name: "YouTube Views & Watch Time", platform: "YouTube", category: "Views", unit: "5,000 views", priceFrom: 45, turnaround: "48–96 hours", priority: "high", description: "Retention-friendly view delivery to support ranking and monetisation thresholds." },
-  { name: "YouTube Subscribers & Likes", platform: "YouTube", category: "Followers", unit: "500 subscribers", priceFrom: 60, turnaround: "3–7 days", priority: "normal", description: "Subscriber and like growth spread across days for a natural-looking curve." },
-  { name: "Facebook Page Likes & Follows", platform: "Facebook", category: "Followers", unit: "1,000 page likes", priceFrom: 28, turnaround: "48–96 hours", priority: "normal", description: "Page likes and follows with optional country filtering for local businesses." },
-  { name: "X (Twitter) Engagement", platform: "X", category: "Engagement", unit: "2,000 impressions + reposts", priceFrom: 22, turnaround: "12–48 hours", priority: "normal", description: "Impressions, reposts and likes to widen the reach of announcements and threads." },
-  { name: "WhatsApp Channel & Group Growth", platform: "WhatsApp", category: "Community", unit: "1,000 members", priceFrom: 40, turnaround: "3–7 days", priority: "high", description: "Real members added to your channel or group, filtered by region where possible." },
-  { name: "Telegram Channel Growth", platform: "Telegram", category: "Community", unit: "1,000 members", priceFrom: 35, turnaround: "2–5 days", priority: "normal", description: "Channel members with geo targeting, useful for crypto, betting and media brands." },
-  { name: "Spotify / Audiomack Plays", platform: "Music", category: "Streams", unit: "10,000 plays", priceFrom: 50, turnaround: "3–7 days", priority: "low", description: "Playlist-safe streaming support for new releases, spread over several days." },
-  { name: "Comment & DM Engagement", platform: "Multi-platform", category: "Community", unit: "100 quality comments", priceFrom: 65, turnaround: "48–96 hours", priority: "normal", description: "Human-written comments on your posts plus DM conversation sparking to lift reach." },
-  { name: "Live Stream Boost", platform: "Multi-platform", category: "Views", unit: "2,000 live viewers", priceFrom: 55, turnaround: "Scheduled", priority: "urgent", description: "Concurrent viewers during a live session — booked in advance with your schedule." }
+  { name: "Instagram Followers", platform: "Instagram", category: "Instagram", unit: "followers", ratePer1000: 2500, min: 100, max: 100000, turnaround: "0–24 hours start", priority: "high", type: "Real · 30-day refill", description: "Gradual follower delivery on a public profile. Keep the account public and do not order the same service twice on one link while an order is running." },
+  { name: "Instagram Likes", platform: "Instagram", category: "Instagram", unit: "likes", ratePer1000: 900, min: 50, max: 50000, turnaround: "0–1 hour start", priority: "high", type: "Fast · no refill", description: "Likes on posts and reels to lift early engagement signals. Send the post link, not the profile link." },
+  { name: "Instagram Reels Views", platform: "Instagram", category: "Instagram", unit: "views", ratePer1000: 350, min: 500, max: 1000000, turnaround: "0–30 minutes start", priority: "urgent", type: "Fast start", description: "Reel and video views delivered quickly to push the clip into wider distribution." },
+  { name: "Instagram Story Views", platform: "Instagram", category: "Instagram", unit: "views", ratePer1000: 600, min: 100, max: 50000, turnaround: "0–1 hour start", priority: "normal", type: "Per story", description: "Views on the first story in your active tray. Order once per 24 hours." },
+  { name: "TikTok Followers", platform: "TikTok", category: "TikTok", unit: "followers", ratePer1000: 3000, min: 100, max: 50000, turnaround: "0–24 hours start", priority: "high", type: "Real · possible drop", description: "Follower growth on a public TikTok account with geo targeting available on request." },
+  { name: "TikTok Views", platform: "TikTok", category: "TikTok", unit: "views", ratePer1000: 250, min: 1000, max: 5000000, turnaround: "0–15 minutes start", priority: "urgent", type: "Fastest service", description: "Video views that trigger the For You distribution test on new uploads." },
+  { name: "TikTok Likes", platform: "TikTok", category: "TikTok", unit: "likes", ratePer1000: 1200, min: 100, max: 50000, turnaround: "0–1 hour start", priority: "normal", type: "Guaranteed", description: "Likes on a specific TikTok video — send the video share link." },
+  { name: "YouTube Views", platform: "YouTube", category: "YouTube", unit: "views", ratePer1000: 4500, min: 1000, max: 1000000, turnaround: "12–48 hours start", priority: "high", type: "Retention · non-drop", description: "Watch-time friendly views delivered over days to support ranking and monetisation thresholds." },
+  { name: "YouTube Subscribers", platform: "YouTube", category: "YouTube", unit: "subscribers", ratePer1000: 12000, min: 50, max: 10000, turnaround: "1–3 days start", priority: "normal", type: "30-day refill", description: "Subscriber growth spread across days for a natural-looking curve. Channel must be public." },
+  { name: "Facebook Page Likes & Follows", platform: "Facebook", category: "Facebook", unit: "likes", ratePer1000: 3500, min: 100, max: 100000, turnaround: "0–24 hours start", priority: "normal", type: "Country targeted", description: "Page likes and follows with optional country filtering for local businesses." },
+  { name: "Facebook Post Reactions", platform: "Facebook", category: "Facebook", unit: "reactions", ratePer1000: 1500, min: 100, max: 50000, turnaround: "0–2 hours start", priority: "normal", type: "Mixed reactions", description: "Reactions on a public post. The post must be visible to everyone." },
+  { name: "X (Twitter) Followers", platform: "X", category: "X (Twitter)", unit: "followers", ratePer1000: 6500, min: 100, max: 20000, turnaround: "0–24 hours start", priority: "high", type: "Low drop", description: "Follower growth on a public X profile, capped daily to protect the account." },
+  { name: "X (Twitter) Likes & Reposts", platform: "X", category: "X (Twitter)", unit: "engagements", ratePer1000: 2200, min: 50, max: 20000, turnaround: "0–1 hour start", priority: "normal", type: "Fast", description: "Likes and reposts on a single tweet to widen the reach of announcements and threads." },
+  { name: "X (Twitter) Views & Impressions", platform: "X", category: "X (Twitter)", unit: "views", ratePer1000: 400, min: 1000, max: 10000000, turnaround: "0–15 minutes start", priority: "urgent", type: "Cheapest views", description: "Tweet views and impressions delivered fast on any public tweet." },
+  { name: "Telegram Channel Members", platform: "Telegram", category: "Telegram", unit: "members", ratePer1000: 3200, min: 100, max: 200000, turnaround: "0–12 hours start", priority: "normal", type: "Non-drop available", description: "Channel or group members with geo targeting — useful for media, betting and crypto brands." },
+  { name: "Telegram Post Views", platform: "Telegram", category: "Telegram", unit: "views", ratePer1000: 180, min: 100, max: 1000000, turnaround: "0–10 minutes start", priority: "normal", type: "Last posts / future posts", description: "Views on the last post, a list of posts, or automatically on every future post." },
+  { name: "WhatsApp Channel Followers", platform: "WhatsApp", category: "WhatsApp", unit: "followers", ratePer1000: 4000, min: 100, max: 50000, turnaround: "1–3 days start", priority: "high", type: "Real accounts", description: "Followers added to your WhatsApp channel, filtered by region where possible." },
+  { name: "Spotify Plays", platform: "Music", category: "Music & Streaming", unit: "plays", ratePer1000: 2800, min: 1000, max: 1000000, turnaround: "1–3 days start", priority: "low", type: "Playlist safe", description: "Track, album or playlist plays delivered from algorithmic playlists over several days." },
+  { name: "Audiomack Plays & Followers", platform: "Music", category: "Music & Streaming", unit: "plays", ratePer1000: 1500, min: 1000, max: 1000000, turnaround: "0–24 hours start", priority: "low", type: "Fast", description: "Plays and follower growth for artists releasing new music on Audiomack." },
+  { name: "Custom Comments", platform: "Multi-platform", category: "Engagement", unit: "comments", ratePer1000: 25000, min: 10, max: 1000, turnaround: "12–48 hours start", priority: "normal", type: "Custom text", description: "Human-written comments you supply, posted on Instagram, TikTok, YouTube or X. Add the comment list in the notes box." },
+  { name: "Website Traffic", platform: "Web", category: "Website & SEO", unit: "visits", ratePer1000: 1200, min: 1000, max: 500000, turnaround: "0–24 hours start", priority: "low", type: "Country + referrer options", description: "Direct or referral visits to any URL, with country targeting and a referrer of your choice." },
+  { name: "Live Stream Viewers", platform: "Multi-platform", category: "Live", unit: "viewers", ratePer1000: 15000, min: 100, max: 10000, turnaround: "Scheduled", priority: "urgent", type: "Concurrent viewers", description: "Concurrent viewers during a live session on TikTok, Instagram, YouTube, Facebook or Twitch. Book in advance and put the start time in the notes." }
 ];
 
 SG.listBoostServices = async function (activeOnly) {
@@ -355,12 +404,22 @@ SG.adminSaveService = async function (id, data) {
   await readyPromise;
   if (!SG.db) throw new Error("The database is unavailable right now.");
   const { addDoc, doc, setDoc, updateDoc, serverTimestamp } = SG._mods.fs;
+  const rate = Number(data.ratePer1000 != null ? data.ratePer1000 : data.priceFrom) || 0;
+  const min = Math.max(1, parseInt(data.min, 10) || 0);
+  const max = Math.max(min, parseInt(data.max, 10) || 1000000);
   const payload = {
     name: data.name || "Untitled service",
     platform: data.platform || "",
     category: data.category || "",
     unit: data.unit || "",
-    priceFrom: Number(data.priceFrom) || 0,
+    /* ratePer1000 is the single source of truth for pricing (naira).
+       priceFrom is kept in sync so older cached clients never show $0. */
+    ratePer1000: rate,
+    priceFrom: rate,
+    currency: "NGN",
+    min: min,
+    max: max,
+    type: data.type || "",
     turnaround: data.turnaround || "",
     priority: data.priority || "normal",
     priorityRank: SG.priorityRank(data.priority || "normal"),
@@ -395,6 +454,9 @@ SG.adminSeedServices = async function () {
     const ref = doc(collection(SG.db, "boostServices"));
     batch.set(ref, {
       ...s,
+      ratePer1000: SG.rateOf(s),
+      priceFrom: SG.rateOf(s),
+      currency: "NGN",
       priorityRank: SG.priorityRank(s.priority),
       active: true,
       createdAt: new Date().toISOString()
@@ -450,6 +512,10 @@ SG.createOrder = async function (order) {
     unit: order.unit || "",
     packageLabel: order.packageLabel || "Standard package",
     quantity: order.quantity || "",
+    quantityNum: Number(order.quantityNum) || 0,
+    unitLabel: order.unitLabel || order.unit || "",
+    ratePer1000: Number(order.ratePer1000) || 0,
+    currency: "NGN",
     amount: Number(order.amount) || 0,
     priority: priority,
     priorityRank: SG.priorityRank(priority),

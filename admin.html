@@ -41,14 +41,14 @@
           </div>
         </div>
         <a class="nav-link" href="case-studies.html">Case Studies</a>
-        <a class="nav-link" href="pricing.html">Pricing</a>
+        <a class="nav-link" href="pricing.html">Boost Rates</a>
         <a class="nav-link" href="blog.html">Insights</a>
         <a class="nav-link" href="about.html">About</a>
         <a class="nav-link" href="contact.html">Contact</a>
       </div>
       <div class="nav-actions">
-        <a class="btn btn-ghost btn-sm" href="login.html" data-auth-when="out">Client Login</a>
-        <a class="btn btn-ghost btn-sm hide" href="order.html" data-auth-when="in">Order Boost</a>
+        <a class="btn btn-ghost btn-sm" href="login.html" data-auth-when="out">Sign In</a>
+        <a class="btn btn-ghost btn-sm hide" href="order.html" data-auth-when="in">Boost Panel</a>
         <a class="btn btn-ghost btn-sm hide" href="dashboard.html" data-auth-when="in">Dashboard</a>
         <a class="btn btn-ghost btn-sm hide" href="admin.html" data-auth-when="admin">Admin</a>
         <a class="btn btn-gold btn-sm" href="contact.html">Free Audit</a>
@@ -73,15 +73,15 @@
         <a href="services.html">All Services</a>
       </div>
       <a href="case-studies.html">Case Studies</a>
-      <a href="pricing.html">Pricing</a>
+      <a href="pricing.html">Boost Rates</a>
       <a href="blog.html">Insights</a>
       <a href="about.html">About</a>
       <a href="contact.html">Contact</a>
     <div class="m-actions">
       <a class="btn btn-gold btn-block" href="contact.html">Book a Free Audit</a>
-      <a class="btn btn-ghost btn-block" href="order.html" data-auth-when="in">Order a Boost Service</a>
-      <a class="btn btn-ghost btn-block" href="login.html" data-auth-when="out">Client Login</a>
-      <a class="btn btn-ghost btn-block" href="dashboard.html" data-auth-when="in">Client Dashboard</a>
+      <a class="btn btn-ghost btn-block" href="order.html" data-auth-when="in">Open the Boost Panel</a>
+      <a class="btn btn-ghost btn-block" href="login.html" data-auth-when="out">Sign In</a>
+      <a class="btn btn-ghost btn-block" href="dashboard.html" data-auth-when="in">My Dashboard</a>
       <a class="btn btn-ghost btn-block" href="admin.html" data-auth-when="admin">Admin Console</a>
       <button class="btn btn-white btn-block" type="button" data-sign-out data-auth-when="in">Sign Out</button>
       <a class="btn btn-white btn-block" href="https://wa.me/2347038322626" target="_blank" rel="noopener">WhatsApp Us</a>
@@ -216,8 +216,8 @@
         <div class="card card-solid mb-3">
           <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap">
             <div>
-              <h3>Boosting services &amp; priorities</h3>
-              <p class="small muted mt-1">Processing priority decides where an order lands in your queue: <strong>Urgent</strong> first, then <strong>High</strong>, <strong>Normal</strong> and <strong>Low</strong>. New orders inherit the priority shown here, and you can override any individual order.</p>
+              <h3>Boosting services, rates &amp; priorities</h3>
+              <p class="small muted mt-1">You set the <strong>rate per 1,000 in naira</strong>, the min/max quantity and the quality label for every service. Those three numbers drive the public rate card (<a href="pricing.html">pricing.html</a>) and the amount clients see on the boost panel. Processing priority decides where an order lands in your queue: <strong>Urgent</strong> first, then <strong>High</strong>, <strong>Normal</strong> and <strong>Low</strong>.</p>
             </div>
             <button class="btn btn-gold btn-sm" type="button" data-service-add>+ Add service</button>
           </div>
@@ -230,12 +230,20 @@
             <div class="field"><label for="svc-platform">Platform</label><input id="svc-platform" name="platform" type="text" placeholder="Instagram"></div>
           </div>
           <div class="field-row">
-            <div class="field"><label for="svc-category">Category</label><input id="svc-category" name="category" type="text" placeholder="Followers"></div>
-            <div class="field"><label for="svc-unit">Unit</label><input id="svc-unit" name="unit" type="text" placeholder="1,000 followers"></div>
+            <div class="field"><label for="svc-category">Category</label><input id="svc-category" name="category" type="text" placeholder="Instagram"></div>
+            <div class="field"><label for="svc-unit">Unit (what 1,000 means)</label><input id="svc-unit" name="unit" type="text" placeholder="followers"></div>
           </div>
           <div class="field-row">
-            <div class="field"><label for="svc-price">Price from (USD)</label><input id="svc-price" name="priceFrom" type="number" min="0" step="1" placeholder="25"></div>
-            <div class="field"><label for="svc-turn">Turnaround</label><input id="svc-turn" name="turnaround" type="text" placeholder="24–72 hours"></div>
+            <div class="field"><label for="svc-rate">Rate per 1,000 (₦) <span class="req">*</span></label><input id="svc-rate" name="ratePer1000" type="number" min="0" step="0.01" placeholder="2500" required><span class="small muted">Clients pay quantity ÷ 1,000 × this rate.</span></div>
+            <div class="field"><label for="svc-type">Quality / type label</label><input id="svc-type" name="type" type="text" placeholder="Real · 30-day refill"></div>
+          </div>
+          <div class="field-row">
+            <div class="field"><label for="svc-min">Min quantity</label><input id="svc-min" name="min" type="number" min="1" step="1" placeholder="100"></div>
+            <div class="field"><label for="svc-max">Max quantity</label><input id="svc-max" name="max" type="number" min="1" step="1" placeholder="100000"></div>
+          </div>
+          <div class="field-row">
+            <div class="field"><label for="svc-turn">Start time / turnaround</label><input id="svc-turn" name="turnaround" type="text" placeholder="0–24 hours start"></div>
+            <div class="field"><label for="svc-price-legacy">Legacy price field (auto-synced)</label><input id="svc-price-legacy" name="priceFrom" type="number" min="0" step="0.01" placeholder="Same as rate per 1,000" disabled><span class="small muted">Kept in step with the rate for older cached pages.</span></div>
           </div>
           <div class="field-row">
             <div class="field">
@@ -324,7 +332,7 @@
         <ul>
           <li><a href="about.html">About Us</a></li>
           <li><a href="case-studies.html">Case Studies</a></li>
-          <li><a href="pricing.html">Pricing</a></li>
+          <li><a href="pricing.html">Boost Rates</a></li>
           <li><a href="blog.html">Insights</a></li>
           <li><a href="faq.html">FAQ</a></li>
           <li><a href="contact.html">Contact</a></li>
@@ -332,12 +340,12 @@
       </div>
 
       <div class="footer-col">
-        <h4>Client Area</h4>
+        <h4>Your Account</h4>
         <ul>
-          <li><a href="order.html">Boost Services</a></li>
-          <li><a href="login.html">Client Login</a></li>
+          <li><a href="order.html">Boost Panel</a></li>
+          <li><a href="login.html">Sign In</a></li>
           <li><a href="signup.html">Create Account</a></li>
-          <li><a href="dashboard.html">Client Dashboard</a></li>
+          <li><a href="dashboard.html">My Dashboard</a></li>
           <li><a href="privacy.html">Privacy Policy</a></li>
           <li><a href="terms.html">Terms of Service</a></li>
         </ul>
