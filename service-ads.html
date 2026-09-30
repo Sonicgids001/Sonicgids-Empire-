@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+<script>document.documentElement.classList.add("sg-auth-pending")</script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Paid Advertising | Sonicgids Empire Social Media Agency</title>
@@ -31,7 +32,7 @@
 <link rel="stylesheet" href="assets/css/pages.css">
 
 </head>
-<body data-page="services">
+<body data-auth-required aria-busy="true" data-page="services">
 <header class="site-header">
   <div class="container">
     <nav class="nav" aria-label="Main navigation">
@@ -435,6 +436,7 @@
 </a>
 
 <script src="assets/js/firebase.js"></script>
+<script src="assets/js/page-guard.js"></script>
 <script src="assets/js/site.js"></script>
 <script src="assets/js/auth.js"></script>
 </body>

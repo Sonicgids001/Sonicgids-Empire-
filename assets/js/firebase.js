@@ -469,6 +469,88 @@ SG.adminSeedServices = async function () {
 /* ==========================================================================
    ORDERS — pending → approved / rejected → ongoing → completed
    ========================================================================== */
+/* ==========================================================================
+   WALLET — balances are changed only by atomic order debits or admin credits.
+   Clients may request a top-up but cannot mark it paid themselves.
+   ========================================================================== */
+SG.walletBalance = async function () {
+  await readyPromise;
+  if (!SG.db || !SG.currentUser) throw new Error("Sign in to view your wallet.");
+  const { doc, getDoc, runTransaction, serverTimestamp } = SG._mods.fs;
+  const ref = doc(SG.db, "wallets", SG.currentUser.uid);
+  let snap = await getDoc(ref);
+  if (!snap.exists()) {
+    await runTransaction(SG.db, async (tx) => {
+      const current = await tx.get(ref);
+      if (!current.exists()) tx.set(ref, { balance: 0, currency: "NGN", updatedAt: serverTimestamp() });
+    });
+    snap = await getDoc(ref);
+  }
+  return Number(snap.data().balance) || 0;
+};
+
+SG.myWalletActivity = async function () {
+  await readyPromise;
+  if (!SG.db || !SG.currentUser) return [];
+  const { collection, query, where, getDocs } = SG._mods.fs;
+  const snap = await getDocs(query(collection(SG.db, "walletTransactions"), where("uid", "==", SG.currentUser.uid)));
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() }))
+    .sort((a, b) => toMillis(b.createdAt) - toMillis(a.createdAt)).slice(0, 10);
+};
+
+SG.requestWalletTopup = async function (amount, reference) {
+  await readyPromise;
+  if (!SG.db || !SG.currentUser) throw new Error("Sign in to request a wallet top-up.");
+  const value = Math.round(Number(amount) * 100) / 100;
+  if (!Number.isFinite(value) || value < 100 || value > 50000000) throw new Error("Enter an amount between ₦100 and ₦50,000,000.");
+  const { addDoc, collection, serverTimestamp } = SG._mods.fs;
+  const result = await addDoc(collection(SG.db, "walletTopups"), {
+    uid: SG.currentUser.uid, email: SG.currentUser.email || "", amount: value,
+    reference: String(reference || "").trim().slice(0, 100), status: "pending", createdAt: serverTimestamp()
+  });
+  return result.id;
+};
+
+SG.myWalletTopups = async function () {
+  await readyPromise;
+  if (!SG.db || !SG.currentUser) return [];
+  const { collection, query, where, getDocs } = SG._mods.fs;
+  const snap = await getDocs(query(collection(SG.db, "walletTopups"), where("uid", "==", SG.currentUser.uid)));
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() }))
+    .sort((a, b) => toMillis(b.createdAt) - toMillis(a.createdAt)).slice(0, 10);
+};
+
+SG.adminListWalletTopups = async function () {
+  await readyPromise;
+  if (!SG.db || !SG.currentUser || !SG.isAdminUser(SG.currentUser)) throw new Error("Admin access required.");
+  const { collection, getDocs, query, where } = SG._mods.fs;
+  const snap = await getDocs(query(collection(SG.db, "walletTopups"), where("status", "==", "pending")));
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() })).sort((a, b) => toMillis(a.createdAt) - toMillis(b.createdAt));
+};
+
+SG.adminReviewWalletTopup = async function (topupId, approve) {
+  await readyPromise;
+  if (!SG.db || !SG.currentUser || !SG.isAdminUser(SG.currentUser)) throw new Error("Admin access required.");
+  const { doc, runTransaction, serverTimestamp } = SG._mods.fs;
+  const topupRef = doc(SG.db, "walletTopups", topupId);
+  const transactionId = "topup_" + topupId;
+  const ledgerRef = doc(SG.db, "walletTransactions", transactionId);
+  await runTransaction(SG.db, async (tx) => {
+    const topupSnap = await tx.get(topupRef);
+    if (!topupSnap.exists() || topupSnap.data().status !== "pending") throw new Error("This top-up request has already been reviewed.");
+    const topup = topupSnap.data();
+    const walletRef = doc(SG.db, "wallets", topup.uid);
+    const walletSnap = await tx.get(walletRef);
+    const balance = walletSnap.exists() ? Number(walletSnap.data().balance) || 0 : 0;
+    const nextBalance = approve ? balance + Number(topup.amount) : balance;
+    tx.update(topupRef, { status: approve ? "approved" : "rejected", reviewedAt: serverTimestamp(), reviewedBy: SG.currentUser.email || "admin" });
+    if (approve) {
+      tx.set(walletRef, { balance: nextBalance, currency: "NGN", updatedAt: serverTimestamp(), lastTransactionId: transactionId }, { merge: true });
+      tx.set(ledgerRef, { uid: topup.uid, type: "credit", source: "topup", amount: Number(topup.amount), balanceAfter: nextBalance, topupId, createdAt: serverTimestamp(), note: "Wallet top-up approved" });
+    }
+  });
+};
+
 SG.ORDER_STATUSES = ["pending", "approved", "rejected", "ongoing", "completed"];
 
 /* Allowed transitions. Mirrors the rules in firestore.rules. */
@@ -496,42 +578,39 @@ SG.createOrder = async function (order) {
   await readyPromise;
   if (!SG.db) throw new Error("The database is unavailable right now. Please try again shortly.");
   if (!SG.currentUser) throw new Error("Please sign in before placing an order.");
-  const { addDoc, collection, serverTimestamp } = SG._mods.fs;
+  const { collection, doc, runTransaction, serverTimestamp } = SG._mods.fs;
   const priority = order.priority || "normal";
+  const amount = Math.round((Number(order.amount) || 0) * 100) / 100;
+  if (amount < 0 || amount > 500000000) throw new Error("The order amount is invalid.");
+  const orderRef = doc(collection(SG.db, "orders"));
+  const walletRef = doc(SG.db, "wallets", SG.currentUser.uid);
+  const ledgerRef = doc(SG.db, "walletTransactions", "order_" + orderRef.id);
   const payload = {
-    ref: SG.newOrderRef(),
-    uid: SG.currentUser.uid,
-    email: SG.currentUser.email || order.email || "",
-    contactName: order.contactName || SG.currentUser.displayName || "",
-    contactPhone: order.contactPhone || "",
-    brand: order.brand || "",
-    serviceId: order.serviceId || "",
-    serviceName: order.serviceName || "Boost service",
-    platform: order.platform || "",
-    category: order.category || "",
-    unit: order.unit || "",
-    packageLabel: order.packageLabel || "Standard package",
-    quantity: order.quantity || "",
-    quantityNum: Number(order.quantityNum) || 0,
-    unitLabel: order.unitLabel || order.unit || "",
-    ratePer1000: Number(order.ratePer1000) || 0,
-    currency: "NGN",
-    amount: Number(order.amount) || 0,
-    priority: priority,
-    priorityRank: SG.priorityRank(priority),
-    targetLink: order.targetLink || "",
-    notes: order.notes || "",
-    status: "pending",
-    adminNote: "",
-    history: [
-      { status: "pending", at: new Date().toISOString(), by: "client", note: "Order submitted" }
-    ],
-    createdAt: serverTimestamp(),
-    updatedAt: serverTimestamp()
+    ref: SG.newOrderRef(), uid: SG.currentUser.uid, email: SG.currentUser.email || order.email || "",
+    contactName: order.contactName || SG.currentUser.displayName || "", contactPhone: order.contactPhone || "",
+    brand: order.brand || "", serviceId: order.serviceId || "", serviceName: order.serviceName || "Boost service",
+    platform: order.platform || "", category: order.category || "", unit: order.unit || "",
+    packageLabel: order.packageLabel || "Standard package", quantity: order.quantity || "",
+    quantityNum: Number(order.quantityNum) || 0, unitLabel: order.unitLabel || order.unit || "",
+    ratePer1000: Number(order.ratePer1000) || 0, currency: "NGN", amount, priority,
+    priorityRank: SG.priorityRank(priority), targetLink: order.targetLink || "", notes: order.notes || "",
+    status: "pending", adminNote: "",
+    history: [{ status: "pending", at: new Date().toISOString(), by: "client", note: "Order submitted" }],
+    createdAt: serverTimestamp(), updatedAt: serverTimestamp()
   };
-  const ref = await addDoc(collection(SG.db, "orders"), payload);
+  let balanceAfter = 0;
+  await runTransaction(SG.db, async (tx) => {
+    const walletSnap = await tx.get(walletRef);
+    if (!walletSnap.exists()) throw new Error("Your wallet is being set up. Refresh the page and try again.");
+    const balance = Number(walletSnap.data().balance) || 0;
+    if (balance < amount) throw new Error("Insufficient wallet balance. Add at least " + SG.money(amount - balance) + " to place this order.");
+    balanceAfter = Math.round((balance - amount) * 100) / 100;
+    tx.set(orderRef, payload);
+    tx.update(walletRef, { balance: balanceAfter, currency: "NGN", lastTransactionId: "order_" + orderRef.id, updatedAt: serverTimestamp() });
+    tx.set(ledgerRef, { uid: SG.currentUser.uid, type: "debit", source: "order", amount, balanceAfter, orderId: orderRef.id, orderRef: payload.ref, createdAt: serverTimestamp(), note: "Order payment" });
+  });
   SG.logEvent("place_order", { service: payload.serviceName, value: payload.amount });
-  return { id: ref.id, ref: payload.ref };
+  return { id: orderRef.id, ref: payload.ref, balance: balanceAfter };
 };
 
 SG.myOrders = async function () {
@@ -564,23 +643,36 @@ SG.adminListOrders = async function () {
 SG.adminUpdateOrder = async function (id, changes, note) {
   await readyPromise;
   if (!SG.db) throw new Error("The database is unavailable right now.");
-  if (!SG.currentUser) throw new Error("You must be signed in.");
-  const { doc, updateDoc, serverTimestamp, arrayUnion } = SG._mods.fs;
-  const patch = { ...changes, updatedAt: serverTimestamp(), updatedBy: SG.currentUser.email };
-  if (changes.status) {
-    const entry = {
-      status: changes.status,
-      at: new Date().toISOString(),
-      by: SG.currentUser.email,
-      note: note || ""
-    };
-    patch.history = arrayUnion(entry);
-    if (changes.status === "approved") patch.approvedAt = serverTimestamp();
-    if (changes.status === "ongoing") patch.startedAt = serverTimestamp();
-    if (changes.status === "completed") patch.completedAt = serverTimestamp();
-    if (changes.status === "rejected") patch.rejectedAt = serverTimestamp();
-  }
-  await updateDoc(doc(SG.db, "orders", id), patch);
+  if (!SG.currentUser || !SG.isAdminUser(SG.currentUser)) throw new Error("Admin access required.");
+  const { collection, doc, runTransaction, serverTimestamp, arrayUnion } = SG._mods.fs;
+  const orderRef = doc(SG.db, "orders", id);
+  await runTransaction(SG.db, async (tx) => {
+    const orderSnap = await tx.get(orderRef);
+    if (!orderSnap.exists()) throw new Error("Order not found.");
+    const order = orderSnap.data();
+    const patch = { ...changes, updatedAt: serverTimestamp(), updatedBy: SG.currentUser.email };
+    if (changes.status && changes.status !== order.status) {
+      patch.history = arrayUnion({ status: changes.status, at: new Date().toISOString(), by: SG.currentUser.email, note: note || "" });
+      if (changes.status === "approved") patch.approvedAt = serverTimestamp();
+      if (changes.status === "ongoing") patch.startedAt = serverTimestamp();
+      if (changes.status === "completed") patch.completedAt = serverTimestamp();
+      if (changes.status === "rejected") patch.rejectedAt = serverTimestamp();
+      const refund = changes.status === "rejected" && order.status !== "rejected";
+      const reopen = order.status === "rejected" && changes.status === "approved";
+      if ((refund || reopen) && order.uid) {
+        const walletRef = doc(SG.db, "wallets", order.uid);
+        const walletSnap = await tx.get(walletRef);
+        const oldBalance = walletSnap.exists() ? Number(walletSnap.data().balance) || 0 : 0;
+        const amount = Number(order.amount) || 0;
+        if (reopen && oldBalance < amount) throw new Error("Client wallet has insufficient funds to reopen this order.");
+        const nextBalance = Math.round((oldBalance + (refund ? amount : -amount)) * 100) / 100;
+        const ledgerRef = doc(collection(SG.db, "walletTransactions"));
+        tx.set(walletRef, { balance: nextBalance, currency: "NGN", lastTransactionId: ledgerRef.id, updatedAt: serverTimestamp() }, { merge: true });
+        tx.set(ledgerRef, { uid: order.uid, type: refund ? "credit" : "debit", source: refund ? "order_refund" : "order_reopen", amount, balanceAfter: nextBalance, orderId: id, orderRef: order.ref || "", createdAt: serverTimestamp(), note: refund ? "Refund for rejected order" : "Reopened order payment" });
+      }
+    }
+    tx.update(orderRef, patch);
+  });
   SG.logEvent("admin_order_update", { status: changes.status || "note" });
   return true;
 };

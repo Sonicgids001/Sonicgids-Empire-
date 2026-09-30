@@ -198,6 +198,11 @@ check("rules require verified admin email", rules.includes("email_verified == tr
 check("services writable by admin only", /match \/boostServices[\s\S]{0,220}allow create, update, delete: if isAdmin\(\)/.test(rules));
 check("orders update admin-only", rules.includes("allow update: if isAdmin()"));
 check("clients cannot change status", rules.includes("statusUntouched()"));
+check("order creation requires matching server catalogue", rules.includes("validCatalogOrder(request.resource.data)"));
+check("wallet order debits are atomic", rules.includes("validWalletDebit(orderId, request.resource.data)"));
+check("wallet ledger is immutable", rules.includes("allow update, delete: if false;"));
+check("top-up requests cannot credit themselves", rules.includes("match /walletTopups/{topupId}"));
+check("client order edits cannot change financial fields", rules.includes("hasOnly(['targetLink', 'notes', 'contactPhone', 'brand'])"));
 check("leads create open, read restricted", /match \/leads[\s\S]{0,900}allow read: if isAdmin\(\)/.test(rules));
 
 /* ---------------- page wiring ---------------- */
@@ -208,11 +213,14 @@ check("admin page loads admin.js", adminHtml.includes("assets/js/admin.js"));
 check("admin page loads orders.js", adminHtml.includes("assets/js/orders.js"));
 check("admin page is noindex", adminHtml.includes("noindex, nofollow"));
 check("admin page has order tabs", adminHtml.includes('data-admin-tab="orders"'));
+check("admin page can review wallet top-ups", adminHtml.includes("data-admin-wallet-topups"));
 check("admin page has service tab", adminHtml.includes('data-admin-tab="services"'));
 check("admin page hides gate initially by default", adminHtml.includes("data-admin-gate"));
 check("admin page has 5 statuses in CSS link", adminHtml.includes("assets/css/admin.css"));
 
 const orderHtml = read("order.html");
+check("private pages have login route gate", orderHtml.includes("data-auth-required") && orderHtml.includes("assets/js/page-guard.js"));
+check("home stays public", !read("index.html").includes("data-auth-required"));
 check("order page loads orders.js", orderHtml.includes("assets/js/orders.js"));
 check("order page loads the boost panel", orderHtml.includes("assets/js/panel.js"));
 check("order page mounts the boost panel", orderHtml.includes("data-boost-panel"));
@@ -226,6 +234,7 @@ check("dashboard has tabs", dashHtml.includes('data-dash-tab="boost"'));
 check("dashboard mounts the boost panel", dashHtml.includes("data-boost-panel"));
 check("dashboard has orders panel", dashHtml.includes("data-dashboard-orders"));
 check("dashboard has order stats", dashHtml.includes('data-order-stat="pending"'));
+check("dashboard includes wallet and top-up form", dashHtml.includes("data-wallet-balance") && dashHtml.includes("data-wallet-topup"));
 check("dashboard shows admin link for admin", dashHtml.includes('data-auth-when="admin"'));
 
 const indexHtml = read("index.html");

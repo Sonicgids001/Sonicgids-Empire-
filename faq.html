@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+<script>document.documentElement.classList.add("sg-auth-pending")</script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>FAQ | Pricing, Process & Results | Sonicgids Empire</title>
@@ -29,9 +30,9 @@
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@500;600;700;800;900&family=Playfair+Display:ital,wght@1,500;1,600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="assets/css/style.css">
 <link rel="stylesheet" href="assets/css/pages.css">
-<script type="application/ld+json">{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"What does a typical engagement look like?","acceptedAnswer":{"@type":"Answer","text":"It starts with a free 30-minute audit call. If we're a fit, you receive a written proposal with scope, deliverables, fees and KPIs. Onboarding takes 10–14 days, then we run a 90-day cycle with monthly reporting."}},{"@type":"Question","name":"Do you work with businesses outside Nigeria?","acceptedAnswer":{"@type":"Answer","text":"Yes. We currently serve clients across Nigeria, the UK, the US and the UAE, working remotely with calls scheduled to suit your timezone."}},{"@type":"Question","name":"Who will I actually work with?","acceptedAnswer":{"@type":"Answer","text":"The founder leads strategy and paid media on every account, backed by our content studio and a client success manager. You'll know everyone on your team by name."}},{"@type":"Question","name":"How much of my time will this take?","acceptedAnswer":{"@type":"Answer","text":"Around one hour a week for approvals and one 30-minute strategy call a month. We build workflows to keep decisions fast and out of your inbox."}},{"@type":"Question","name":"Can you work alongside my in-house marketing team?","acceptedAnswer":{"@type":"Answer","text":"Absolutely. Many clients keep brand and PR in-house while we own social, content and paid media — with shared calendars and reporting so nothing overlaps."}},{"@type":"Question","name":"How much do your services cost?","acceptedAnswer":{"@type":"Answer","text":"The website and your account are free. You pay only for the boosts you order, priced in naira per 1,000 — for example Instagram likes from ₦900 per 1,000 and Instagram followers from ₦2,500 per 1,000. Every rate is on the public rate card and the exact amount is calculated on the order form before you submit."}},{"@type":"Question","name":"Is there a subscription or minimum spend?","acceptedAnswer":{"@type":"Answer","text":"No. There is no subscription, no retainer and no minimum spend. Sign in, order a boost when you need it and pay only for that order."}},{"@type":"Question","name":"Do you charge to create an account?","acceptedAnswer":{"@type":"Answer","text":"No. Creating an account, browsing the rate card, placing orders and tracking them in your dashboard is completely free."}},{"@type":"Question","name":"How do I pay for a boost order?","acceptedAnswer":{"@type":"Answer","text":"Orders are submitted free and land as pending. After approval we send payment details on WhatsApp or by email — bank transfer, Paystack or card — and delivery starts once payment is confirmed."}},{"@type":"Question","name":"Who sets the rates?","acceptedAnswer":{"@type":"Answer","text":"Our team sets the rate per 1,000, the minimum and maximum quantity for every service. The public rate card and the boost panel read the same live catalogue, so the price you see is always current."}}]}</script>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"What does a typical engagement look like?","acceptedAnswer":{"@type":"Answer","text":"It starts with a free 30-minute audit call. If we're a fit, you receive a written proposal with scope, deliverables, fees and KPIs. Onboarding takes 10–14 days, then we run a 90-day cycle with monthly reporting."}},{"@type":"Question","name":"Do you work with businesses outside Nigeria?","acceptedAnswer":{"@type":"Answer","text":"Yes. We currently serve clients across Nigeria, the UK, the US and the UAE, working remotely with calls scheduled to suit your timezone."}},{"@type":"Question","name":"Who will I actually work with?","acceptedAnswer":{"@type":"Answer","text":"The founder leads strategy and paid media on every account, backed by our content studio and a client success manager. You'll know everyone on your team by name."}},{"@type":"Question","name":"How much of my time will this take?","acceptedAnswer":{"@type":"Answer","text":"Around one hour a week for approvals and one 30-minute strategy call a month. We build workflows to keep decisions fast and out of your inbox."}},{"@type":"Question","name":"Can you work alongside my in-house marketing team?","acceptedAnswer":{"@type":"Answer","text":"Absolutely. Many clients keep brand and PR in-house while we own social, content and paid media — with shared calendars and reporting so nothing overlaps."}},{"@type":"Question","name":"How much do your services cost?","acceptedAnswer":{"@type":"Answer","text":"The website and your account are free. You pay only for the boosts you order, priced in naira per 1,000 — for example Instagram likes from ₦900 per 1,000 and Instagram followers from ₦2,500 per 1,000. Every rate is on the signed-in rate card and the exact amount is calculated on the order form before you submit."}},{"@type":"Question","name":"Is there a subscription or minimum spend?","acceptedAnswer":{"@type":"Answer","text":"No. There is no subscription, no retainer and no minimum spend. Sign in, order a boost when you need it and pay only for that order."}},{"@type":"Question","name":"Do you charge to create an account?","acceptedAnswer":{"@type":"Answer","text":"No. Creating an account, browsing the rate card, placing orders and tracking them in your dashboard is completely free."}},{"@type":"Question","name":"How do I pay for a boost order?","acceptedAnswer":{"@type":"Answer","text":"Orders are paid from your wallet when submitted and land as pending. If our team rejects an order, the amount is refunded to your wallet. Top-ups are manually verified before funds are credited."}},{"@type":"Question","name":"Who sets the rates?","acceptedAnswer":{"@type":"Answer","text":"Our team sets the rate per 1,000, the minimum and maximum quantity for every service. The signed-in rate card and the boost panel read the same live catalogue, so the price you see is always current."}}]}</script>
 </head>
-<body data-page="faq">
+<body data-auth-required aria-busy="true" data-page="faq">
 <header class="site-header">
   <div class="container">
     <nav class="nav" aria-label="Main navigation">
@@ -154,7 +155,7 @@
   <div class="accordion" data-single="true">
     <div class="acc-item">
       <button class="acc-q" type="button">How much do your services cost?<span class="pm">+</span></button>
-      <div class="acc-a"><div class="acc-a-inner">The website and your account are free. You pay only for the boosts you order, priced in naira per 1,000 — for example Instagram likes from ₦900 per 1,000 and Instagram followers from ₦2,500 per 1,000. Every rate is on the <a href="pricing.html">public rate card</a>, and the exact amount is calculated on the order form before you submit.</div></div>
+      <div class="acc-a"><div class="acc-a-inner">The website and your account are free. You pay only for the boosts you order, priced in naira per 1,000 — for example Instagram likes from ₦900 per 1,000 and Instagram followers from ₦2,500 per 1,000. Every rate is on the <a href="pricing.html">signed-in rate card</a>, and the exact amount is calculated on the order form before you submit.</div></div>
     </div>
     <div class="acc-item">
       <button class="acc-q" type="button">Is there a subscription or minimum spend?<span class="pm">+</span></button>
@@ -166,11 +167,11 @@
     </div>
     <div class="acc-item">
       <button class="acc-q" type="button">How do I pay for a boost order?<span class="pm">+</span></button>
-      <div class="acc-a"><div class="acc-a-inner">Orders are submitted free and land as <strong>pending</strong>. After approval we send payment details on WhatsApp or by email — bank transfer, Paystack or card — and delivery starts once payment is confirmed.</div></div>
+      <div class="acc-a"><div class="acc-a-inner">Orders are paid from your wallet when submitted and land as <strong>pending</strong>. If our team rejects an order, the amount is refunded to your wallet. Top-ups are manually verified before funds are credited.</div></div>
     </div>
     <div class="acc-item">
       <button class="acc-q" type="button">Who sets the rates?<span class="pm">+</span></button>
-      <div class="acc-a"><div class="acc-a-inner">Our team sets the rate per 1,000, the minimum and maximum quantity for every service from the admin console. The public rate card and the boost panel read the same live catalogue, so the price you see is always current.</div></div>
+      <div class="acc-a"><div class="acc-a-inner">Our team sets the rate per 1,000, the minimum and maximum quantity for every service from the admin console. The signed-in rate card and the boost panel read the same live catalogue, so the price you see is always current.</div></div>
     </div>
   </div>
     </div>
@@ -329,6 +330,7 @@
 </a>
 
 <script src="assets/js/firebase.js"></script>
+<script src="assets/js/page-guard.js"></script>
 <script src="assets/js/site.js"></script>
 <script src="assets/js/auth.js"></script>
 </body>

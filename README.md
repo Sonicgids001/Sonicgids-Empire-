@@ -1,9 +1,9 @@
 # Sonicgids Empire — Social Growth Panel & Marketing Website
 
-Official website for **Sonicgids Empire**. The site itself is **free to use**: visitors create a
-free account, sign in and land on a **social media boost panel** (SMM-panel style) where they pick
-a service, paste the link, enter a quantity and see the amount in **naira** calculated from the
-rate per 1,000 that the admin sets. There are **no subscriptions and no retainer plans**.
+Official website for **Sonicgids Empire**. The homepage and the sign-in / account-recovery pages
+are public; all other site pages require a Firebase login. Signed-in clients can place boost orders
+using a naira wallet, track orders, and submit manual top-up requests. There are **no subscriptions
+and no retainer plans**.
 
 Built as a **plain static site** — HTML, CSS and vanilla JavaScript, no build step and no
 dependencies to install. Deploy the folder anywhere; it runs as-is.
@@ -22,7 +22,7 @@ dependencies to install. Deploy the folder anywhere; it runs as-is.
 | SEO & Web | `service-seo.html` | Service detail |
 | Influencer Marketing | `service-influencer.html` | Service detail |
 | Case Studies | `case-studies.html` | Filterable results by industry |
-| **Boost rate card** | `pricing.html` | Public, searchable naira rate table (rate per 1,000, min, max, start time) rendered live from the admin catalogue — no plans, no retainers |
+| **Boost rate card** | `pricing.html` | Login-required, searchable naira rate table (rate per 1,000, min, max, start time) rendered live from the admin catalogue |
 | Insights (blog) | `blog.html` | Featured post, category filter, newsletter |
 | Articles | `blog-*.html` (6) | Full articles: playbook, Instagram, Meta ads, hooks, metrics, local SEO |
 | About | `about.html` | Story, principles, team, timeline |
@@ -33,7 +33,7 @@ dependencies to install. Deploy the folder anywhere; it runs as-is.
 | Sign in | `login.html` | Firebase email/password or Google sign-in |
 | Create account | `signup.html` | Firebase account creation |
 | Reset password | `forgot-password.html` | Password reset email |
-| Dashboard | `dashboard.html` | Auth-gated, tabbed: **Boost panel** (default) · My orders · Overview |
+| Dashboard | `dashboard.html` | Auth-gated wallet, top-up requests, **Boost panel**, My orders and Overview |
 | **Admin console** | `admin.html` | **Owner-only.** Process orders, **set the rate per 1,000 / min / max**, priorities and the catalogue |
 | 404 | `404.html` | Custom not-found page |
 | Legal | `privacy.html`, `terms.html` | Privacy policy and terms of service |
@@ -51,13 +51,13 @@ Also included: `sitemap.xml`, `robots.txt`, `firebase.json`, `firestore.rules`, 
 | How is a price formed? | `amount = quantity ÷ 1,000 × ratePer1000` — see `SG.orderTotal()`. |
 | Currency | **Nigerian Naira (₦)** everywhere — `SG.CURRENCY = "NGN"`, formatted by `SG.money()`. |
 | Who sets the rates? | **The admin**, per service, in the console (rate per 1,000, min, max, quality label). |
-| Where are rates shown? | `pricing.html` (public rate card), `order.html` + dashboard boost panel, homepage teaser. |
-| When is money taken? | Never on submit. Orders are created **pending**; payment details are sent after approval. |
+| Where are rates shown? | `pricing.html` (signed-in rate card), `order.html` + dashboard boost panel, homepage teaser. |
+| When is money taken? | The displayed amount is debited from the wallet atomically when the order is submitted. Rejected orders are refunded. |
 
 The boost panel is one shared component — `assets/js/panel.js` renders into any
 `[data-boost-panel]` element, so `order.html` and the dashboard **Boost** tab stay identical.
-Add `?preview=1` to either page to render the signed-in panel with the starter catalogue
-(no Firebase session needed); submitting still requires a real account.
+Add `?preview=1` to either page to render a UI preview with the starter catalogue; checkout still
+requires a real account, a funded wallet, and a seeded Firestore service catalogue.
 
 ---
 
@@ -69,10 +69,8 @@ can bypass it by editing the page source.
 
 ### Signing in as admin
 
-1. Open `/admin.html` and choose **Continue with Google**, then pick the owner Google account.
-   Google sign-in returns a verified email, which is what the rules require.
-   *Alternatively* sign in with email + password at `/login.html` — the owner account is then
-   redirected straight to the admin console.
+1. Sign in at `/login.html` with the owner Google account (or the verified owner email/password),
+   then open `/admin.html`. The private-page guard sends signed-out visitors to login first.
 2. Using email + password, the address must be **verified**. The console shows a yellow banner
    with a **Send verification email** button when it isn't. Verified email is required because
    Firestore rules check `email_verified == true`.
@@ -84,7 +82,8 @@ can bypass it by editing the page source.
 | Tab | What it does |
 | --- | --- |
 | **Overview** | Live counts: awaiting approval, in progress, completed, pipeline value + open queue sorted by priority and recent activity |
-| **Orders** | Filter by status (pending / approved / ongoing / completed / rejected), search by reference, customer, service or link, and process each order |
+| **Orders** | Filter by status (pending / approved / ongoing / completed / rejected), search and process orders; rejecting refunds the client wallet atomically |
+| **Wallet top-ups** | Verify incoming payments and approve or reject user top-up requests; approval credits the wallet and ledger atomically |
 | **Boost services** | Add, edit, pause, delete services and set the **rate per 1,000 (₦)**, **min/max quantity**, quality label, start time and **processing priority** on each |
 | **Leads** | Contact-form briefs with reply-by-email / WhatsApp buttons |
 | **Subscribers** | Newsletter list with a *copy all emails* button |
@@ -223,7 +222,9 @@ The site uses the `sonicgidsempire` Firebase project. The web config lives at th
    firebase deploy --only firestore:rules,firestore:indexes
    ```
 
-4. **Analytics** is enabled by the measurement ID already in the config. It only loads on
+4. In the owner console, open **Boost services** and import the starter catalogue (or add services).
+   Checkout validates each amount against this server-managed Firestore catalogue.
+5. **Analytics** is enabled by the measurement ID already in the config. It only loads on
    HTTPS or localhost, and never blocks page rendering.
 
 ### Data model
@@ -233,18 +234,23 @@ The site uses the `sonicgidsempire` Firebase project. The web config lives at th
 | `leads` | `contact.html` brief form | `name`, `email`, `company`, `phone`, `service`, `budget`, `message`, `source`, `page`, `uid`, `createdAt` |
 | `subscribers` | Footer / blog newsletter | `email`, `page`, `createdAt` |
 | `orders` | Boost panel (`order.html` / dashboard) | `ref`, `uid`, `email`, `contactName`, `contactPhone`, `brand`, `serviceId`, `serviceName`, `platform`, `category`, `unit`, `unitLabel`, `packageLabel`, `quantity`, `quantityNum`, `ratePer1000`, `currency`, `amount`, `priority`, `priorityRank`, `targetLink`, `notes`, `status`, `adminNote`, `history[]`, `createdAt`, `updatedAt` |
-| `boostServices` | Admin console | `name`, `platform`, `category`, `unit`, **`ratePer1000`**, `currency`, **`min`**, **`max`**, `type`, `priceFrom` (legacy mirror of the rate), `turnaround`, `priority`, `priorityRank`, `description`, `active`, `createdAt`, `updatedAt` |
+| `boostServices` | Admin console | `name`, `platform`, `category`, `unit`, **`ratePer1000`**, `currency`, **`min`**, **`max`**, `type`, `priceFrom` (legacy mirror), `turnaround`, `priority`, `priorityRank`, `description`, `active`, `createdAt`, `updatedAt` |
+| `wallets/{uid}` | Atomic checkout / admin credit | `balance`, `currency`, `updatedAt`, `lastTransactionId` |
+| `walletTransactions` | Atomic checkout / admin review | Immutable owner-scoped credits and debits, `amount`, `balanceAfter`, source and related order / top-up |
+| `walletTopups` | Client request / admin review | `uid`, `email`, `amount`, `reference`, `status`, review audit fields |
 
 Security summary enforced by `firestore.rules`:
 
 * Anyone may **create** a lead or subscriber; only the admin may read them.
-* A signed-in user may create an order (pinned to `status: "pending"` and their own `uid`) and
-  read only their own orders. They can never write `status`, `history`, `adminNote` or `priority`.
-  `amount`, `ratePer1000` and `quantityNum` are validated as numbers, with a ₦500,000,000 ceiling.
-* Anyone may **read** `boostServices` — that is what makes the public rate card work — but only the
+* A signed-in user may create an order only when the price, quantity and priority match the active
+  Firestore service catalogue. Order creation, wallet debit and immutable ledger entry are one
+  transaction. Clients can read only their own orders and cannot edit financial or status fields.
+* Anyone may **read** `boostServices` — the signed-in rate card uses the same catalogue — but only the
   admin can create services or change a rate, min or max.
-* Only the verified owner address may read all orders, change statuses/priorities, or write the
-  boosting catalogue.
+* Wallet balances and top-up approvals are admin-controlled. A client can only request a top-up;
+  no payment is credited until the owner verifies receipt. Rejected orders trigger an atomic refund.
+* Static HTML is hidden behind a Firebase auth guard in the browser. Firebase Hosting serves static
+  files, so Firestore rules—not the page guard—are the security boundary for private data.
 
 ### The `window.SG` API
 
@@ -290,7 +296,9 @@ SG.adminSeedServices()
 // orders
 SG.ORDER_STATUSES                           // pending | approved | rejected | ongoing | completed
 SG.NEXT_STATUSES / SG.canMoveTo(from, to)   // allowed transitions
-SG.createOrder({ ... })                     // always created as "pending"
+SG.walletBalance() / SG.myWalletActivity()
+SG.requestWalletTopup(amount, reference)
+SG.createOrder({ ... })                     // pending; atomically debits wallet
 SG.myOrders()
 SG.adminListOrders()
 SG.adminUpdateOrder(id, { status }, note)   // admin: approve / reject / start / complete
