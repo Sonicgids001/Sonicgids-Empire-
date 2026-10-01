@@ -74,9 +74,11 @@ const fb = load("assets/js/firebase.js");
 const SG = fb.window.SG;
 
 check("admin email constant", SG.ADMIN_EMAIL === "okogbagideon28@gmail.com", SG.ADMIN_EMAIL);
+check("admin allowlist starts with the owner", SG.ADMIN_EMAILS[0] === "okogbagideon28@gmail.com");
 check("isAdminEmail matches owner", SG.isAdminEmail("okogbagideon28@gmail.com") === true);
 check("isAdminEmail is case-insensitive", SG.isAdminEmail("  OkogbaGideon28@Gmail.com ") === true);
 check("isAdminEmail rejects others", SG.isAdminEmail("someone@else.com") === false);
+check("isAdminEmail rejects blanks", SG.isAdminEmail("") === false && SG.isAdminEmail(null) === false);
 check("isAdminUser needs verified email",
   SG.isAdminUser({ email: SG.ADMIN_EMAIL, emailVerified: false, providerData: [] }) === false);
 check("isAdminUser allows verified owner",
@@ -85,6 +87,23 @@ check("isAdminUser allows Google owner",
   SG.isAdminUser({ email: SG.ADMIN_EMAIL, emailVerified: false, providerData: [{ providerId: "google.com" }] }) === true);
 check("isAdminUser rejects verified non-owner",
   SG.isAdminUser({ email: "nope@x.com", emailVerified: true, providerData: [] }) === false);
+
+/* The four gate states the admin console renders. */
+console.log("\nfirebase.js — admin gate states");
+check("signed out reports signed-out", SG.adminStatus(null) === "signed-out");
+check("client account reports not-admin",
+  SG.adminStatus({ email: "client@x.com", emailVerified: true, providerData: [] }) === "not-admin");
+check("unverified owner is its own state (not 'no access')",
+  SG.adminStatus({ email: SG.ADMIN_EMAIL, emailVerified: false, providerData: [] }) === "owner-unverified");
+check("verified owner reports owner",
+  SG.adminStatus({ email: SG.ADMIN_EMAIL, emailVerified: true, providerData: [] }) === "owner");
+check("Google owner reports owner without a verification link",
+  SG.adminStatus({ email: SG.ADMIN_EMAIL, emailVerified: false, providerData: [{ providerId: "google.com" }] }) === "owner");
+check("signedInWithGoogle only for google providers",
+  SG.signedInWithGoogle({ providerData: [{ providerId: "password" }] }) === false &&
+  SG.signedInWithGoogle({ providerData: [{ providerId: "google.com" }] }) === true);
+check("refreshUser exists so a stale emailVerified can be cleared",
+  typeof SG.refreshUser === "function");
 
 check("four priority levels", SG.PRIORITIES.length === 4);
 check("urgent ranks first", SG.priorityRank("urgent") === 1);
@@ -195,6 +214,10 @@ console.log("\nfirestore.rules — admin enforcement");
 const rules = fs.readFileSync(path.join(ROOT, "firestore.rules"), "utf8");
 check("rules pin admin address", rules.includes("okogbagideon28@gmail.com"));
 check("rules require verified admin email", rules.includes("email_verified == true"));
+check("rules accept a Google sign-in as proof of the owner address",
+  /sign_in_provider == 'google\.com'/.test(rules));
+check("rules gate admin access on the owner address",
+  /function isAdminEmail\(email\)[\s\S]{0,80}'okogbagideon28@gmail\.com'/.test(rules));
 check("services writable by admin only", /match \/boostServices[\s\S]{0,220}allow create, update, delete: if isAdmin\(\)/.test(rules));
 check("orders update admin-only", rules.includes("allow update: if isAdmin()"));
 check("clients cannot change status", rules.includes("statusUntouched()"));
@@ -217,6 +240,26 @@ check("admin page can review wallet top-ups", adminHtml.includes("data-admin-wal
 check("admin page has service tab", adminHtml.includes('data-admin-tab="services"'));
 check("admin page hides gate initially by default", adminHtml.includes("data-admin-gate"));
 check("admin page has 5 statuses in CSS link", adminHtml.includes("assets/css/admin.css"));
+
+/* Admin access: the owner must be able to get in. */
+check("admin page renders its own gate instead of bouncing to login",
+  adminHtml.includes('data-auth-gate="inline"'));
+check("page guard understands the inline gate",
+  read("assets/js/page-guard.js").includes('authGate === "inline"'));
+check("gate names the signed-in account", adminHtml.includes("data-admin-signed-in"));
+check("gate has a dedicated unverified-owner step", adminHtml.includes("data-admin-unverified"));
+check("gate can resend the verification email", adminHtml.includes("data-admin-send-verify"));
+check("gate can re-check access without signing in again", adminHtml.includes("data-admin-recheck"));
+check("gate offers Google sign-in", adminHtml.includes("data-admin-google"));
+check("gate offers email + password sign-in", /data-auth-form="login"/.test(adminHtml));
+check("gate explains who is allowed", adminHtml.includes("id=\"adminEmailHint\""));
+check("admin.js routes the unverified owner to its own state",
+  read("assets/js/admin.js").includes("owner-unverified"));
+
+/* The owner must be able to reach a Google button while signed out. */
+check("login page offers Google sign-in", read("login.html").includes("data-google-signin"));
+check("signup page offers Google sign-in", read("signup.html").includes("data-google-signin"));
+check("auth.js wires the Google buttons", read("assets/js/auth.js").includes("data-google-signin"));
 
 const orderHtml = read("order.html");
 check("private pages have login route gate", orderHtml.includes("data-auth-required") && orderHtml.includes("assets/js/page-guard.js"));
@@ -260,5 +303,132 @@ check("panel exports SGBoostPanel", typeof panel.window.SGBoostPanel === "functi
 const rates = load("assets/js/rates.js");
 check("rates.js loads without a DOM", !!rates.window);
 
-console.log(`\n${pass} passed, ${fail} failed\n`);
-process.exit(fail === 0 ? 0 : 1);
+/* ---------------- admin gate routing (behavioural) ---------------- */
+/* Loads the real firebase.js (for SG.adminStatus) and the real admin.js into a
+   sandbox with a stub DOM, then checks which gate state each account lands on.
+   Only network I/O (onUser / refreshUser / Firestore reads) is faked. */
+console.log("\nadmin.js — gate routing");
+
+function makeGateSandbox() {
+  const els = new Map();
+  const mk = (name) => {
+    const node = {
+      name,
+      _classes: new Set(),
+      classList: {
+        add: (c) => node._classes.add(c),
+        remove: (c) => node._classes.delete(c),
+        toggle: (c, on) => (on ? node._classes.add(c) : node._classes.delete(c)),
+        contains: (c) => node._classes.has(c)
+      },
+      addEventListener() {}, setAttribute() {}, appendChild() {}, focus() {},
+      style: {}, innerHTML: "", textContent: "", value: "", dataset: {}, disabled: false,
+      querySelector: () => null, querySelectorAll: () => [],
+      closest: () => null, scrollIntoView() {}
+    };
+    return node;
+  };
+  const el = (name) => {
+    if (!els.has(name)) els.set(name, mk(name));
+    return els.get(name);
+  };
+  const document = {
+    readyState: "complete",
+    title: "Admin Console | Sonicgids Empire",
+    body: el("body"),
+    documentElement: el("html"),
+    querySelector: (sel) => el(sel),
+    querySelectorAll: () => [],
+    getElementById: (id) => el("#" + id),
+    createElement: () => mk("created"),
+    addEventListener() {},
+    dispatchEvent() {}
+  };
+  const sandbox = {
+    window: {}, document, els, el,
+    location: { protocol: "https:", hostname: "sonicgidsempire.web.app", pathname: "/admin.html", search: "", href: "https://sonicgidsempire.web.app/admin.html" },
+    console, setTimeout: () => 0, clearTimeout: () => {},
+    requestAnimationFrame: (fn) => fn(0),
+    performance: { now: () => 0 },
+    navigator: { clipboard: { writeText: async () => {} } },
+    CustomEvent: function () {}, URLSearchParams, Promise, Math, Date, JSON,
+    Number, String, Object, Array, parseInt, isNaN
+  };
+  sandbox.window = sandbox;
+  sandbox.globalThis = sandbox;
+  sandbox.self = sandbox;
+  vm.createContext(sandbox);
+  /* firebase.js first: admin.js reads SG.adminStatus / SG.isAdminEmail from it.
+     SG.ready is forced true so SGOnReady callbacks fire during load. */
+  vm.runInContext(fs.readFileSync(path.join(ROOT, "assets/js/firebase.js"), "utf8"), sandbox,
+    { filename: "assets/js/firebase.js" });
+  sandbox.window.SG.ready = true;
+  return sandbox;
+}
+
+async function gateCase(user, refreshed) {
+  const sb = makeGateSandbox();
+  const sg = sb.window.SG;
+  sg.currentUser = user;
+  sg.onUser = (cb) => cb(user);
+  sg.refreshUser = async () => {
+    sg.currentUser = refreshed === undefined ? user : refreshed;
+    return sg.currentUser;
+  };
+  sg.adminListOrders = async () => [];
+  sg.adminListLeads = async () => [];
+  sg.adminListSubscribers = async () => [];
+  sg.adminListWalletTopups = async () => [];
+  vm.runInContext(fs.readFileSync(path.join(ROOT, "assets/js/admin.js"), "utf8"), sb,
+    { filename: "assets/js/admin.js" });
+  await new Promise((resolve) => realSetTimeout(resolve, 5));
+  return sb;
+}
+
+const realSetTimeout = setTimeout;
+const owner = { email: "okogbagideon28@gmail.com", emailVerified: true, providerData: [{ providerId: "password" }] };
+const ownerUnverified = { email: "okogbagideon28@gmail.com", emailVerified: false, providerData: [{ providerId: "password" }] };
+const ownerGoogle = { email: "OkogbaGideon28@Gmail.com", emailVerified: false, providerData: [{ providerId: "google.com" }] };
+const client = { email: "client@brand.com", emailVerified: true, providerData: [{ providerId: "password" }] };
+
+const hidden = (sb, sel) => sb.el(sel)._classes.has("hide");
+
+(async () => {
+  let sb = await gateCase(null);
+  check("signed-out visitor sees the sign-in block",
+    !hidden(sb, "[data-admin-signin]") && hidden(sb, "[data-admin-panel]"));
+  check("signed-out visitor does not see the 'no access' error",
+    hidden(sb, "[data-admin-noaccess]"));
+
+  sb = await gateCase(client);
+  check("a client account is told it has no admin access",
+    !hidden(sb, "[data-admin-noaccess]") && hidden(sb, "[data-admin-panel]"));
+  check("the gate names the account that is signed in",
+    sb.el("[data-admin-signed-in]").textContent === "client@brand.com",
+    sb.el("[data-admin-signed-in]").textContent);
+
+  /* The bug this fixes: the cached profile still says emailVerified === false
+     after the owner clicks the verification link, and the console used to show
+     "This account does not have admin access". */
+  sb = await gateCase(ownerUnverified, owner);
+  check("an owner whose verification just landed gets straight into the console",
+    !hidden(sb, "[data-admin-panel]") && hidden(sb, "[data-admin-gate]"));
+
+  sb = await gateCase(ownerUnverified, ownerUnverified);
+  check("an unverified owner gets the verification step, not 'no access'",
+    !hidden(sb, "[data-admin-unverified]") && hidden(sb, "[data-admin-noaccess]") &&
+    hidden(sb, "[data-admin-panel]"));
+
+  sb = await gateCase(owner);
+  check("a verified owner opens the console", !hidden(sb, "[data-admin-panel]"));
+  check("the console header shows the owner address",
+    sb.el("[data-admin-email]").textContent === "okogbagideon28@gmail.com");
+
+  sb = await gateCase(ownerGoogle);
+  check("a Google owner opens the console with no verification email",
+    !hidden(sb, "[data-admin-panel]"));
+
+  console.log(`\n${pass} passed, ${fail} failed\n`);
+  process.exit(fail === 0 ? 0 : 1);
+})();
+

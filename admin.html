@@ -16,7 +16,7 @@
 <link rel="stylesheet" href="assets/css/pages.css">
 <link rel="stylesheet" href="assets/css/admin.css">
 </head>
-<body data-auth-required aria-busy="true" data-page="admin">
+<body data-auth-required data-auth-gate="inline" aria-busy="true" data-page="admin">
 
 <header class="site-header">
   <div class="container">
@@ -102,33 +102,76 @@
         <div class="lock">🔐</div>
         <span class="eyebrow">Restricted area</span>
         <h1 style="font-size:1.7rem;margin:12px 0 10px">Admin console</h1>
-        <p class="small muted">This area is limited to the Sonicgids Empire owner account. Orders, priorities and the boosting catalogue are managed here.</p>
+        <p class="small muted">Process client orders, approve wallet top-ups and set boost rates. Only the owner account can open this page.</p>
 
         <div class="alert mt-3" data-admin-gate-alert role="alert"></div>
 
-        <!-- Signed out -->
+        <!-- Which account the browser is holding (any session) -->
+        <div class="admin-identity mt-3 hide" data-admin-identity>
+          <span class="ai-avatar" data-admin-initial>O</span>
+          <span class="ai-body">
+            <span class="ai-label">Signed in as</span>
+            <strong data-admin-signed-in></strong>
+          </span>
+        </div>
+
+        <!-- 1 · Signed out -->
         <div data-admin-signin>
           <div class="btn-row mt-3" style="display:grid;gap:10px">
             <button class="btn btn-gold btn-block btn-lg" type="button" data-admin-google>
               Continue with Google
             </button>
           </div>
-          <p class="form-note mt-3">Use the owner Google account, or <a href="login.html?next=admin.html">sign in with email and password</a>.</p>
+
+          <div class="oauth-divider">or sign in with the owner email</div>
+
+          <form data-auth-form="login" novalidate>
+            <div class="alert" data-auth-alert role="alert"></div>
+            <div class="field">
+              <label for="admin-email">Email address</label>
+              <input id="admin-email" name="email" type="email" autocomplete="email" placeholder="okogbagideon28@gmail.com" required>
+            </div>
+            <div class="field">
+              <label for="admin-password">Password</label>
+              <input id="admin-password" name="password" type="password" autocomplete="current-password" placeholder="••••••••" required>
+            </div>
+            <button class="btn btn-white btn-block" type="submit">Sign in</button>
+          </form>
+
+          <p class="form-note">Lost the password? <a href="forgot-password.html">Reset it</a>. Google is the quickest route — it needs no verification email.</p>
         </div>
 
-        <!-- Signed in, but not the admin -->
+        <!-- 2 · Owner address, email not verified yet -->
+        <div data-admin-unverified class="hide">
+          <div class="alert show alert-info mt-3">
+            <strong>One step left:</strong> this address still has to be confirmed. Firestore blocks admin
+            reads until the mailbox is proven, so the console stays locked for now.
+          </div>
+          <ol class="gate-steps">
+            <li>Press <strong>Send verification email</strong> below.</li>
+            <li>Open the link Firebase emails you (check spam if it is not there).</li>
+            <li>Come back and press <strong>Re-check access</strong> — no need to sign in again.</li>
+          </ol>
+          <div class="btn-row mt-3" style="display:grid;gap:10px">
+            <button class="btn btn-gold btn-block" type="button" data-admin-send-verify>Send verification email</button>
+            <button class="btn btn-white btn-block" type="button" data-admin-recheck>Re-check access</button>
+          </div>
+          <p class="form-note">Wrong account? <button class="link-btn" type="button" data-sign-out data-redirect="admin.html">Sign out</button> and use the owner Google account instead.</p>
+        </div>
+
+        <!-- 3 · Signed in as somebody else -->
         <div data-admin-noaccess class="hide">
           <div class="alert show alert-error mt-3">
-            This account does not have admin access. Admin functions are restricted to the owner address only.
+            This account does not have admin access. The console is limited to the owner address shown below.
           </div>
           <div class="btn-row mt-3" style="display:grid;gap:10px">
-            <button class="btn btn-ghost btn-block" type="button" data-sign-out data-redirect="index.html">Sign out and use the owner account</button>
+            <button class="btn btn-gold btn-block" type="button" data-sign-out data-redirect="admin.html">Switch to the owner account</button>
             <a class="btn btn-white btn-block" href="dashboard.html">Go to my client dashboard</a>
           </div>
         </div>
 
         <div class="divider"></div>
-        <p class="small muted">Admin access is verified against <strong id="adminEmailHint">okogbagideon28@gmail.com</strong> and enforced by Firestore security rules, so it cannot be bypassed from the browser.</p>
+        <p class="small muted">Allowed account: <strong id="adminEmailHint">okogbagideon28@gmail.com</strong>. The same rule is enforced by Firestore security rules, so it cannot be bypassed from the browser.</p>
       </div>
     </div>
 
@@ -196,6 +239,8 @@
 
       <!-- ---------- Orders ---------- -->
       <div data-admin-view="orders" class="hide">
+        <p class="small muted mb-2">Approve, start, complete or reject each order. Rejecting refunds the client's wallet automatically.</p>
+
         <div class="filter-bar" data-order-filters style="justify-content:flex-start;margin-bottom:16px">
           <button class="active" data-filter="pending">Pending</button>
           <button data-filter="approved">Approved</button>
@@ -206,10 +251,11 @@
         </div>
 
         <div class="field" style="max-width:420px;margin-bottom:22px">
-          <input type="search" placeholder="Search by reference, client, service or link…" data-order-search>
+          <label class="sr-only" for="admin-order-search">Search orders</label>
+          <input id="admin-order-search" type="search" aria-label="Search orders" placeholder="Search by reference, client, service or link…" data-order-search>
         </div>
 
-        <p class="small muted mb-2"><span data-admin-order-count>0</span> order(s) in this view</p>
+        <p class="small muted mb-2">Showing <strong data-admin-order-count>0</strong> order(s) in this view</p>
         <div data-admin-orders></div>
       </div>
 

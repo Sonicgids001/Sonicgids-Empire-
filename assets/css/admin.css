@@ -105,8 +105,8 @@
 .order-card {
   border: 1px solid var(--line-soft);
   border-radius: var(--r-lg);
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.012));
-  padding: clamp(20px, 2.4vw, 28px);
+  background: rgba(255, 255, 255, 0.028);
+  padding: clamp(20px, 2.4vw, 26px);
   transition: border-color 0.3s var(--ease), box-shadow 0.3s var(--ease);
 }
 .order-card:hover { border-color: var(--line-strong); box-shadow: var(--shadow-md); }
@@ -337,21 +337,40 @@
 .dash-stat .delta.bad { color: #f87171; }
 
 /* ---------- Admin console ---------- */
+/* Sticky so the console sections stay one click away while a long order list
+   scrolls past. Tabs scroll sideways on small screens instead of stacking into
+   six rows. */
 .admin-bar {
+  position: sticky;
+  top: var(--header-h);
+  z-index: 40;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
-  padding: 18px 0;
+  gap: 12px;
+  padding: 14px 0;
+  margin-bottom: 24px;
   border-bottom: 1px solid var(--line-soft);
-  margin-bottom: 26px;
+  background: rgba(7, 7, 10, 0.88);
+  backdrop-filter: blur(14px) saturate(140%);
+  -webkit-backdrop-filter: blur(14px) saturate(140%);
 }
-.admin-tabs { display: flex; flex-wrap: wrap; gap: 8px; }
+.admin-tabs {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+  scrollbar-width: thin;
+  -ms-overflow-style: none;
+}
+.admin-tabs::-webkit-scrollbar { height: 4px; }
 .admin-tab {
   display: inline-flex;
   align-items: center;
-  gap: 9px;
+  gap: 8px;
+  flex: none;
   padding: 10px 18px;
   border-radius: var(--r-pill);
   border: 1px solid var(--line-soft);
@@ -359,9 +378,10 @@
   color: var(--muted);
   font-size: 0.85rem;
   font-weight: 600;
-  transition: all 0.3s var(--ease);
+  white-space: nowrap;
+  transition: all 0.25s var(--ease);
 }
-.admin-tab:hover { color: #fff; border-color: var(--line-strong); }
+.admin-tab:hover { color: #fff; border-color: rgba(255, 255, 255, 0.2); }
 .admin-tab.active { background: var(--grad-gold); color: #17130a; border-color: transparent; }
 .tab-count {
   min-width: 20px;
@@ -476,6 +496,73 @@
   color: var(--muted);
 }
 .admin-identity strong { color: var(--gold); }
+.admin-identity .ai-body { display: grid; gap: 1px; min-width: 0; }
+.admin-identity .ai-label {
+  font-size: 0.68rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--faint);
+}
+.admin-identity strong {
+  color: #fff;
+  word-break: break-all;
+  font-weight: 600;
+}
+.admin-identity .ai-avatar {
+  flex: none;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-family: var(--font-head);
+  font-weight: 700;
+  color: var(--gold);
+  background: rgba(212, 175, 55, 0.14);
+  border: 1px solid var(--line-strong);
+}
+
+/* Numbered "how to get in" list on the verification step of the gate. */
+.gate-steps {
+  display: grid;
+  gap: 9px;
+  margin-top: 18px;
+  counter-reset: gate;
+  font-size: 0.86rem;
+  color: var(--text-soft);
+}
+.gate-steps li {
+  display: grid;
+  grid-template-columns: 22px 1fr;
+  gap: 10px;
+  align-items: start;
+}
+.gate-steps li::before {
+  counter-increment: gate;
+  content: counter(gate);
+  width: 22px;
+  height: 22px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  font-family: var(--font-head);
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--gold);
+  background: rgba(212, 175, 55, 0.12);
+  border: 1px solid var(--line-strong);
+}
+
+/* Inline text button ("Sign out") inside gate helper copy. */
+.link-btn {
+  font: inherit;
+  font-size: inherit;
+  color: var(--gold);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+.link-btn:hover { color: var(--gold-light); }
 
 @media (max-width: 980px) {
   .order-layout { grid-template-columns: 1fr; }
@@ -816,13 +903,16 @@ table.rate-table tr:last-child td { border-bottom: 0; }
 /* ---- dashboard tabs ---- */
 .dash-tabs {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: 8px;
   margin: 22px 0 26px;
   border-bottom: 1px solid var(--line-soft);
   padding-bottom: 14px;
+  overflow-x: auto;
+  scrollbar-width: thin;
 }
 .dash-tab {
+  flex: none;
   padding: 10px 18px;
   border-radius: var(--r-pill);
   border: 1px solid var(--line-soft);
@@ -831,10 +921,11 @@ table.rate-table tr:last-child td { border-bottom: 0; }
   font-family: var(--font-head);
   font-size: 0.85rem;
   font-weight: 600;
+  white-space: nowrap;
   cursor: pointer;
-  transition: all 0.22s var(--ease);
+  transition: all 0.25s var(--ease);
 }
-.dash-tab:hover { border-color: var(--line-strong); color: #fff; }
+.dash-tab:hover { border-color: rgba(255, 255, 255, 0.2); color: #fff; }
 .dash-tab.active { background: var(--grad-gold); border-color: transparent; color: #17130a; }
 .dash-view.hide { display: none; }
 

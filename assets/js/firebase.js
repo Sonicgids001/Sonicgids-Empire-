@@ -258,20 +258,73 @@ SG.myLeads = async function () {
 
 /* ==========================================================================
    ADMIN IDENTITY
-   Only the account owner address can reach the admin panel. Firestore rules
-   enforce the same address server-side, so this is a convenience check —
-   never the security boundary.
+   Only the owner address(es) below can reach the admin panel. Firestore rules
+   enforce the same list server-side, so this is a convenience check — never
+   the security boundary.
+
+   To add a second admin, append the lowercase address here AND to the
+   ADMIN_EMAILS list in firestore.rules, then redeploy the rules.
    ========================================================================== */
-SG.ADMIN_EMAIL = "okogbagideon28@gmail.com";
+SG.ADMIN_EMAILS = ["okogbagideon28@gmail.com"];
+
+/* Kept for backwards compatibility — the primary owner address. */
+SG.ADMIN_EMAIL = SG.ADMIN_EMAILS[0];
+
+SG.normalizeEmail = function (email) {
+  return String(email || "").trim().toLowerCase();
+};
 
 SG.isAdminEmail = function (email) {
-  return String(email || "").trim().toLowerCase() === SG.ADMIN_EMAIL;
+  const normal = SG.normalizeEmail(email);
+  return !!normal && SG.ADMIN_EMAILS.indexOf(normal) !== -1;
+};
+
+/* Proof of ownership Firebase accepts without a verification link: a Google
+   sign-in means Google already confirmed the mailbox. */
+SG.signedInWithGoogle = function (user) {
+  const providers = (user && user.providerData) || [];
+  return providers.some((p) => p && p.providerId === "google.com");
+};
+
+/* One source of truth for "why can't I in?" — the admin gate renders this.
+     signed-out        → nobody is logged in
+     not-admin         → logged in, but not an owner address
+     owner-unverified  → right address, email not verified yet (rules block it)
+     owner             → full access
+   ========================================================================== */
+SG.adminStatus = function (user) {
+  if (!user) return "signed-out";
+  if (!SG.isAdminEmail(user.email)) return "not-admin";
+  return user.emailVerified === true || SG.signedInWithGoogle(user)
+    ? "owner"
+    : "owner-unverified";
 };
 
 SG.isAdminUser = function (user) {
-  if (!user || !SG.isAdminEmail(user.email)) return false;
-  const viaGoogle = (user.providerData || []).some((p) => p.providerId === "google.com");
-  return user.emailVerified === true || viaGoogle;
+  return SG.adminStatus(user) === "owner";
+};
+
+/* Firebase hands back the profile cached at sign-in, so an address verified
+   minutes ago still reads emailVerified === false (and the ID token still
+   carries email_verified: false, which the security rules check). Pull a
+   fresh profile and force a new token so the owner is not locked out of
+   their own console after clicking the verification link. */
+SG.refreshUser = async function () {
+  await readyPromise;
+  const user = SG.currentUser || (SG.auth && SG.auth.currentUser);
+  if (!user || !SG.auth) return user || null;
+  const authMod = SG._mods.auth || {};
+  try {
+    const reloadFn = authMod.reload || authMod.reloadUser;
+    if (typeof reloadFn === "function") await reloadFn(user);
+    else if (typeof user.reload === "function") await user.reload();
+    if (typeof authMod.getIdToken === "function") await authMod.getIdToken(user, true);
+    else if (typeof user.getIdToken === "function") await user.getIdToken(true);
+  } catch (err) {
+    console.warn("[Sonicgids] Could not refresh the account:", err && err.message);
+  }
+  SG.currentUser = SG.auth.currentUser || user;
+  return SG.currentUser;
 };
 
 SG.signInWithGoogle = async function () {
@@ -288,7 +341,18 @@ SG.signInWithGoogle = async function () {
 SG.sendVerificationEmail = async function () {
   await readyPromise;
   if (!SG.auth || !SG.currentUser) throw new Error("Sign in first, then request the email.");
-  await SG._mods.auth.sendEmailVerification(SG.currentUser);
+  const { sendEmailVerification } = SG._mods.auth;
+  /* Ask Firebase to send the owner back to this page after they click the
+     link, so the console can re-check access. Falls back to a plain email if
+     the current domain is not an authorised continue URL. */
+  try {
+    await sendEmailVerification(SG.currentUser, {
+      url: location.href,
+      handleCodeInApp: false
+    });
+  } catch (err) {
+    await sendEmailVerification(SG.currentUser);
+  }
 };
 
 /* ==========================================================================
@@ -709,8 +773,16 @@ function toMillis(value) {
 
 SG.friendlyDbError = function (err) {
   const code = (err && err.code) || "";
-  if (code === "permission-denied")
-    return "The database blocked this request — check your Firestore security rules.";
+  if (code === "permission-denied") {
+    const owner = SG.isAdminEmail(SG.currentUser && SG.currentUser.email);
+    if (owner) {
+      return "Firestore refused this read for " + (SG.currentUser.email || "the owner account") +
+        ". The rules accept the owner address only once the email is verified (or you sign in " +
+        "with Google) — verify it, then press Re-check access. If it is already verified, the " +
+        "deployed rules are out of date: run `firebase deploy --only firestore:rules`.";
+    }
+    return "You do not have permission to read this data. Admin data is limited to the owner account.";
+  }
   if (code === "unavailable")
     return "Could not reach the database. Check that Cloud Firestore is enabled for this project.";
   if (code === "failed-precondition")
