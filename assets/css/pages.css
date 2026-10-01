@@ -153,17 +153,34 @@
   margin-bottom: 40px;
 }
 .filter-bar button {
-  padding: 9px 20px;
+  padding: 9px 18px;
   border-radius: var(--r-pill);
   border: 1px solid var(--line-soft);
   background: rgba(255, 255, 255, 0.03);
   color: var(--muted);
   font-size: 0.82rem;
   font-weight: 600;
-  transition: all 0.3s var(--ease);
+  white-space: nowrap;
+  transition: all 0.25s var(--ease);
 }
-.filter-bar button:hover { color: #fff; border-color: var(--line-strong); }
-.filter-bar button.active { background: var(--grad-gold); color: #17130a; border-color: transparent; }
+.filter-bar button:hover { color: #fff; border-color: rgba(255, 255, 255, 0.2); }
+/* Filters are a second level of navigation, so the active one is outlined in
+   gold rather than filled — the solid gold stays reserved for real actions. */
+.filter-bar button.active {
+  background: rgba(212, 175, 55, 0.12);
+  border-color: var(--line-strong);
+  color: var(--gold-light);
+}
+
+@media (max-width: 620px) {
+  .filter-bar {
+    flex-wrap: nowrap;
+    justify-content: flex-start;
+    overflow-x: auto;
+    padding-bottom: 6px;
+    scrollbar-width: thin;
+  }
+}
 
 .case-card {
   display: flex;

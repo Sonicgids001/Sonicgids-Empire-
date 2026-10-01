@@ -64,18 +64,33 @@ requires a real account, a funded wallet, and a seeded Firestore service catalog
 ## Admin console (`admin.html`)
 
 Access is restricted to **okogbagideon28@gmail.com** — the check runs both in the browser
-(`SG.ADMIN_EMAIL` in `assets/js/firebase.js`) **and** in Firestore security rules, so nobody
-can bypass it by editing the page source.
+(`SG.ADMIN_EMAILS` in `assets/js/firebase.js`) **and** in Firestore security rules, so nobody
+can bypass it by editing the page source. To add a second admin, extend `SG.ADMIN_EMAILS`
+*and* `isAdminEmail()` in `firestore.rules`, then `firebase deploy --only firestore:rules`.
 
 ### Signing in as admin
 
-1. Sign in at `/login.html` with the owner Google account (or the verified owner email/password),
-   then open `/admin.html`. The private-page guard sends signed-out visitors to login first.
-2. Using email + password, the address must be **verified**. The console shows a yellow banner
-   with a **Send verification email** button when it isn't. Verified email is required because
-   Firestore rules check `email_verified == true`.
-3. Anyone else who signs in sees *"This account does not have admin access"* and is offered
-   their dashboard instead.
+`admin.html` carries `data-auth-gate="inline"`, so it renders its **own** gate instead of
+bouncing signed-out visitors to `login.html`. That matters: the owner's quickest route
+(*Continue with Google*) lives inside the gate, and the old redirect made it unreachable.
+
+| State | What you see | What to do |
+| --- | --- | --- |
+| Signed out | **Continue with Google** + an owner email/password form | Sign in with the owner account |
+| Owner address, email not verified | A numbered 3-step card with **Send verification email** and **Re-check access** | Click the link Firebase emails you, then press **Re-check access** |
+| Somebody else's account | *"This account does not have admin access"* + **Switch to the owner account** | Sign in with the owner Google account |
+| Owner, verified | The console | — |
+
+Notes:
+
+- **Google needs no verification email.** Google has already proven the mailbox, and the
+  Firestore rules accept `sign_in_provider == 'google.com'` in place of `email_verified`.
+- **A verification that just landed is picked up automatically.** Firebase serves the profile
+  cached at sign-in, so `emailVerified` can still read `false` after you click the link. Before
+  the gate refuses an owner, `SG.refreshUser()` reloads the profile **and** forces a fresh ID
+  token (the token is what the rules check). **Re-check access** does the same on demand.
+- Google sign-in is also offered on `login.html` and `signup.html` (`data-google-signin`).
+- Rules are only live once deployed: `firebase deploy --only firestore:rules`.
 
 ### What the admin can do
 
@@ -269,8 +284,12 @@ SG.sendVerificationEmail()
 SG.onUser(cb)
 
 // identity
-SG.ADMIN_EMAIL                             // "okogbagideon28@gmail.com"
-SG.isAdminEmail(email) / SG.isAdminUser(user)
+SG.ADMIN_EMAILS                            // ["okogbagideon28@gmail.com"] — the allowlist
+SG.ADMIN_EMAIL                             // "okogbagideon28@gmail.com" (first entry)
+SG.isAdminEmail(email)                     // case/space tolerant
+SG.adminStatus(user)                       // signed-out | not-admin | owner-unverified | owner
+SG.isAdminUser(user)                       // true only for "owner"
+SG.refreshUser()                           // reload profile + force a fresh ID token
 
 // leads & subscribers
 SG.saveLead({ ... })                        // → leads collection

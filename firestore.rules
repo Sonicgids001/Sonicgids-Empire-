@@ -20,12 +20,23 @@ service cloud.firestore {
   match /databases/{database}/documents {
 
     // ---- Admin identity -----------------------------------------------------
-    // Change the address here (and in assets/js/firebase.js — SG.ADMIN_EMAIL)
-    // if the owner account ever changes.
+    // Keep this list in step with SG.ADMIN_EMAILS in assets/js/firebase.js.
+    // To add a second admin, extend isAdminEmail() below AND the array in
+    // firebase.js, then run: firebase deploy --only firestore:rules
+    //
+    // An address counts as the owner once the mailbox is proven — either by a
+    // verified email (email/password accounts) or by a Google sign-in. Google
+    // has already confirmed the address; insisting on the verification link for
+    // a Google account is what used to lock the owner out of their own console.
+    function isAdminEmail(email) {
+      return email == 'okogbagideon28@gmail.com';
+    }
+
     function isAdmin() {
       return request.auth != null
-        && request.auth.token.email_verified == true
-        && request.auth.token.email == 'okogbagideon28@gmail.com';
+        && isAdminEmail(request.auth.token.email)
+        && (request.auth.token.email_verified == true
+            || request.auth.token.firebase.sign_in_provider == 'google.com');
     }
 
     function signedIn() {

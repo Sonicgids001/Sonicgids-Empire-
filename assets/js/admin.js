@@ -40,8 +40,10 @@
   const $gate = () => $("[data-admin-gate]");
   const $panel = () => $("[data-admin-panel]");
   const $noAccess = () => $("[data-admin-noaccess]");
+  const $unverified = () => $("[data-admin-unverified]");
   const $verify = () => $("[data-admin-verify]");
   const $signinWrap = () => $("[data-admin-signin]");
+  const $identity = () => $("[data-admin-identity]");
 
   function toast(msg, type) {
     if (window.sgToast) window.sgToast(msg, type);
@@ -731,22 +733,65 @@
     if ($gate()) $gate().classList.remove("hide");
     if ($panel()) $panel().classList.add("hide");
     if ($signinWrap()) $signinWrap().classList.toggle("hide", mode !== "signed-out");
+    if ($unverified()) $unverified().classList.toggle("hide", mode !== "unverified");
     if ($noAccess()) $noAccess().classList.toggle("hide", mode !== "not-admin");
+  }
+
+  /* Names the account the browser is holding, so signing in with the wrong
+     Google profile is obvious at a glance instead of looking like a broken
+     console. */
+  function renderIdentity(user) {
+    const wrap = $identity();
+    if (!wrap) return;
+    const emailEl = $("[data-admin-signed-in]");
+    const initial = $("[data-admin-initial]");
+    if (!user || !user.email) return wrap.classList.add("hide");
+    wrap.classList.remove("hide");
+    if (emailEl) emailEl.textContent = user.email;
+    if (initial) initial.textContent = user.email.trim().charAt(0).toUpperCase();
   }
 
   function showPanel(user) {
     if ($gate()) $gate().classList.add("hide");
     if ($panel()) $panel().classList.remove("hide");
+    renderIdentity(user);
     const emailEl = $("[data-admin-email]");
     if (emailEl) emailEl.textContent = user.email || "";
     const verify = $("[data-admin-verify]");
     if (verify) {
-      const needsVerify = !user.emailVerified &&
-        !(user.providerData || []).some((p) => p.providerId === "google.com");
+      const needsVerify = !user.emailVerified && !window.SG.signedInWithGoogle(user);
       verify.classList.toggle("hide", !needsVerify);
     }
     loadOverview();
     loadOrders();
+  }
+
+  /* The cached Firebase profile can still report emailVerified === false (and
+     hand Firestore an ID token with email_verified: false) moments after the
+     owner clicks the verification link. A blocked owner gets one automatic
+     refresh before the gate is shown, so a verified address is never told it
+     has no access. */
+  async function evaluateAccess(user) {
+    if (!user) {
+      renderIdentity(null);
+      return showGate("signed-out");
+    }
+    renderIdentity(user);
+    const statusOf = (u) =>
+      window.SG.adminStatus ? window.SG.adminStatus(u)
+        : (window.SG.isAdminUser(u) ? "owner" : "not-admin");
+
+    let status = statusOf(user);
+    if (status === "owner-unverified" && window.SG.refreshUser) {
+      const fresh = await window.SG.refreshUser();
+      if (fresh) {
+        user = fresh;
+        renderIdentity(user);
+        status = statusOf(user);
+      }
+    }
+    if (status === "owner") return showPanel(user);
+    return showGate(status === "owner-unverified" ? "unverified" : status);
   }
 
   function initGate() {
@@ -776,11 +821,50 @@
     const verifyBtn = $("[data-admin-send-verify]");
     if (verifyBtn) {
       verifyBtn.addEventListener("click", async () => {
+        const original = verifyBtn.textContent;
+        verifyBtn.disabled = true;
+        verifyBtn.textContent = "Sending…";
         try {
           await window.SG.sendVerificationEmail();
-          toast("Verification email sent — check your inbox.");
+          toast("Verification email sent — open the link, then press Re-check access.");
+          verifyBtn.textContent = "Email sent — check your inbox";
+          return;
         } catch (err) {
-          toast("Could not send the verification email.", "error");
+          toast("Could not send the verification email. Try again in a minute.", "error");
+        }
+        verifyBtn.disabled = false;
+        verifyBtn.textContent = original;
+      });
+    }
+
+    /* Re-reads the account from Firebase: profile + a fresh ID token, which is
+       what the security rules check for email_verified. */
+    const recheck = $("[data-admin-recheck]");
+    if (recheck) {
+      recheck.addEventListener("click", async () => {
+        const original = recheck.textContent;
+        const alertEl = $("[data-admin-gate-alert]");
+        recheck.disabled = true;
+        recheck.textContent = "Checking…";
+        try {
+          const fresh = await window.SG.refreshUser();
+          const status = fresh && window.SG.adminStatus ? window.SG.adminStatus(fresh) : "signed-out";
+          if (status === "owner") {
+            if (alertEl) alertEl.className = "alert";
+            toast("Verified — opening the console.");
+            await evaluateAccess(fresh);
+            return;
+          }
+          if (alertEl) {
+            alertEl.className = "alert show alert-info";
+            alertEl.textContent =
+              status === "owner-unverified"
+                ? "Firebase still reports this address as unverified. Open the link in the email (spam folder included), then press Re-check access again."
+                : "That session has ended. Sign in again with the owner account.";
+          }
+        } finally {
+          recheck.disabled = false;
+          recheck.textContent = original;
         }
       });
     }
@@ -810,11 +894,10 @@
     initGate();
 
     window.SGOnReady(() => {
-      window.SG.onUser((user) => {
-        if (!user) return showGate("signed-out");
-        if (!window.SG.isAdminUser(user)) return showGate("not-admin");
-        showPanel(user);
-      });
+      /* Keep the address shown on the gate in step with SG.ADMIN_EMAILS. */
+      const hint = document.getElementById("adminEmailHint");
+      if (hint && window.SG.ADMIN_EMAIL) hint.textContent = window.SG.ADMIN_EMAIL;
+      window.SG.onUser((user) => { evaluateAccess(user); });
     });
   }
 

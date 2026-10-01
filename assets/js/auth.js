@@ -51,7 +51,11 @@
      Nav state — swap "Client Login" for "Dashboard / Sign out"
      -------------------------------------------------------------------------- */
   function renderNavState(user) {
-    const admin = !!(user && window.SG && window.SG.isAdminUser && window.SG.isAdminUser(user));
+    /* The console link shows for the owner address even before the email is
+       verified — the gate explains the one remaining step instead of hiding
+       the door and leaving the owner wondering where the admin area went. */
+    const admin = !!(user && window.SG && window.SG.isAdminEmail &&
+      window.SG.isAdminEmail(user.email));
     $$("[data-auth-when]").forEach((el) => {
       const want = el.dataset.authWhen;
       let show;
