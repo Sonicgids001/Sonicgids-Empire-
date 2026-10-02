@@ -159,7 +159,9 @@ const friendlyAuthError = (err) => {
     "auth/cancelled-popup-request": "Sign-in was cancelled. Try again.",
     "auth/account-exists-with-different-credential":
       "That email is already registered with a different sign-in method.",
-    "auth/requires-recent-login": "Please sign out and sign in again to continue."
+    "auth/requires-recent-login": "Please sign out and sign in again to continue.",
+    "auth/verification-email-failed":
+      "Your account was created, but its verification email could not be sent."
   };
   return map[code] || (err && err.message) || "Something went wrong. Please try again.";
 };
@@ -167,15 +169,30 @@ const friendlyAuthError = (err) => {
 SG.friendlyError = friendlyAuthError;
 
 SG.signUp = async function (email, password, name) {
-  await readyPromise;
+  if (!SG.ready) await readyPromise;
   if (!SG.auth) throw new Error("Authentication is unavailable right now.");
   const cred = await SG._mods.auth.createUserWithEmailAndPassword(SG.auth, email, password);
+  SG.currentUser = cred.user;
   if (name) {
     try {
       await SG._mods.auth.updateProfile(cred.user, { displayName: name });
     } catch (e) { /* non-fatal */ }
   }
   SG.logEvent("sign_up", { method: "password" });
+  try {
+    await SG.sendVerificationEmail(cred.user);
+  } catch (err) {
+    /* Account creation has already succeeded. Mark the error so the sign-up
+       page can guide the user to the admin gate's resend action instead of
+       implying that no account was created. */
+    const verificationError = new Error(
+      "Your account was created, but its verification email could not be sent."
+    );
+    verificationError.code = "auth/verification-email-failed";
+    verificationError.accountCreated = true;
+    verificationError.cause = err;
+    throw verificationError;
+  }
   return cred.user;
 };
 
@@ -338,20 +355,44 @@ SG.signInWithGoogle = async function () {
   return cred.user;
 };
 
-SG.sendVerificationEmail = async function () {
-  await readyPromise;
-  if (!SG.auth || !SG.currentUser) throw new Error("Sign in first, then request the email.");
+SG.sendVerificationEmail = async function (user) {
+  if (!SG.ready) await readyPromise;
+  if (!SG.auth) throw new Error("Authentication is unavailable right now.");
+  const targetUser = user || SG.currentUser || SG.auth.currentUser;
+  if (!targetUser) throw new Error("Sign in first, then request the email.");
   const { sendEmailVerification } = SG._mods.auth;
-  /* Ask Firebase to send the owner back to this page after they click the
-     link, so the console can re-check access. Falls back to a plain email if
-     the current domain is not an authorised continue URL. */
+
+  /* Send new owners back to the admin gate after Firebase verifies the address;
+     other new accounts continue to the client dashboard. This also works for
+     the existing resend button on admin.html. */
+  let actionCodeSettings = null;
   try {
-    await sendEmailVerification(SG.currentUser, {
-      url: location.href,
+    const returnPage = SG.isAdminEmail(targetUser.email) ? "admin.html" : "dashboard.html";
+    actionCodeSettings = {
+      url: new URL(returnPage, location.href).href,
       handleCodeInApp: false
-    });
+    };
+  } catch (e) {
+    /* Some restricted browser contexts do not expose a usable page URL. */
+  }
+
+  if (!actionCodeSettings) {
+    await sendEmailVerification(targetUser);
+    return;
+  }
+
+  try {
+    await sendEmailVerification(targetUser, actionCodeSettings);
   } catch (err) {
-    await sendEmailVerification(SG.currentUser);
+    /* A continue URL on a local or newly connected custom domain may not yet
+       be allow-listed in Firebase. Still send the verification email using
+       Firebase's default action handler in that case. Do not retry other
+       errors (for example throttling or network failures). */
+    const code = err && err.code;
+    if (code !== "auth/unauthorized-continue-uri" && code !== "auth/invalid-continue-uri") {
+      throw err;
+    }
+    await sendEmailVerification(targetUser);
   }
 };
 

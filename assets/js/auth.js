@@ -150,9 +150,16 @@
 
       try {
         if (mode === "signup") {
-          await window.SG.signUp(email, password, name);
-          setAlert(alertEl, "Account created. Taking you to your dashboard…", "success");
-          setTimeout(() => (location.href = safeNext("dashboard.html")), 900);
+          const user = await window.SG.signUp(email, password, name);
+          const isOwner = window.SG.isAdminEmail && window.SG.isAdminEmail(user.email);
+          const destination = safeNext(isOwner ? "admin.html" : "dashboard.html");
+          setAlert(
+            alertEl,
+            "Account created. We sent a verification link to " + (user.email || email) +
+              ". Check your inbox and spam folder. A verified owner email is required to access the admin panel.",
+            "success"
+          );
+          setTimeout(() => (location.href = destination), 2200);
         } else if (mode === "login") {
           const user = await window.SG.signIn(email, password);
           const isOwner = window.SG.isAdminEmail && window.SG.isAdminEmail(user.email);
@@ -179,7 +186,24 @@
           window.SG && window.SG.friendlyError
             ? window.SG.friendlyError(err)
             : (err && err.message) || "Something went wrong.";
-        setAlert(alertEl, msg, "error");
+        if (mode === "signup" && err && err.accountCreated) {
+          const user = window.SG.currentUser || (window.SG.auth && window.SG.auth.currentUser);
+          const isOwner = !!(user && window.SG.isAdminEmail && window.SG.isAdminEmail(user.email));
+          const reason = err.cause && window.SG.friendlyError
+            ? " " + window.SG.friendlyError(err.cause)
+            : " Please check your connection and try again.";
+          setAlert(
+            alertEl,
+            msg + reason + (isOwner ? " Opening the admin console so you can resend it." : " Taking you to your dashboard."),
+            "error"
+          );
+          setTimeout(
+            () => (location.href = safeNext(isOwner ? "admin.html" : "dashboard.html")),
+            2600
+          );
+        } else {
+          setAlert(alertEl, msg, "error");
+        }
       } finally {
         buttonBusy(submit, false);
       }
