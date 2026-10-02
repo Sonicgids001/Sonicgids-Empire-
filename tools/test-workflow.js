@@ -28,7 +28,7 @@ function makeSandbox() {
   const sandbox = {
     window: {},
     document,
-    location: { protocol: "http:", hostname: "localhost", pathname: "/order.html", search: "" },
+    location: { protocol: "http:", hostname: "localhost", pathname: "/order.html", search: "", href: "http://localhost:8080/order.html" },
     console,
     setTimeout: () => 0,
     clearTimeout: () => {},
@@ -36,6 +36,7 @@ function makeSandbox() {
     performance: { now: () => 0 },
     navigator: { clipboard: { writeText: async () => {} } },
     CustomEvent: function () {},
+    URL,
     URLSearchParams,
     Promise,
     Math,
@@ -258,8 +259,14 @@ check("admin.js routes the unverified owner to its own state",
 
 /* The owner must be able to reach a Google button while signed out. */
 check("login page offers Google sign-in", read("login.html").includes("data-google-signin"));
-check("signup page offers Google sign-in", read("signup.html").includes("data-google-signin"));
+const signupHtml = read("signup.html");
+check("signup page offers Google sign-in", signupHtml.includes("data-google-signin"));
+check("signup explains email/password verification", signupHtml.includes("sends a verification link"));
+check("Google signup explains that Google confirms the email", signupHtml.includes("Google confirms your email"));
 check("auth.js wires the Google buttons", read("assets/js/auth.js").includes("data-google-signin"));
+check("email/password signup sends a verification email", read("assets/js/firebase.js").includes("await SG.sendVerificationEmail(cred.user)"));
+check("registration success explains the email-verification step",
+  read("assets/js/auth.js").includes("We sent a verification link to "));
 
 const orderHtml = read("order.html");
 check("private pages have login route gate", orderHtml.includes("data-auth-required") && orderHtml.includes("assets/js/page-guard.js"));
@@ -394,6 +401,64 @@ const client = { email: "client@brand.com", emailVerified: true, providerData: [
 const hidden = (sb, sel) => sb.el(sel)._classes.has("hide");
 
 (async () => {
+  async function registrationTest(email, sendVerification) {
+    const env = load("assets/js/firebase.js");
+    const sg = env.window.SG;
+    const user = { email, displayName: "", emailVerified: false, providerData: [{ providerId: "password" }] };
+    const sends = [];
+    env.location.href = "https://sonicgidsempire.web.app/signup.html";
+    sg.ready = true;
+    sg.auth = { currentUser: null };
+    sg._mods.auth = {
+      createUserWithEmailAndPassword: async () => ({ user }),
+      updateProfile: async (target, profile) => Object.assign(target, profile),
+      sendEmailVerification: async (target, settings) => {
+        sends.push({ target, settings });
+        if (sendVerification) await sendVerification(target, settings);
+      }
+    };
+    let result = null;
+    let error = null;
+    try {
+      result = await sg.signUp(email, "password123", "Test Owner");
+    } catch (err) {
+      error = err;
+    }
+    return { sg, user, sends, result, error };
+  }
+
+  const registeredOwner = await registrationTest("okogbagideon28@gmail.com");
+  check("email/password signup returns the created Firebase user", registeredOwner.result === registeredOwner.user);
+  check("signup sends a verification email to the new account",
+    registeredOwner.sends.length === 1 && registeredOwner.sends[0].target === registeredOwner.user);
+  check("owner verification link returns to the admin panel",
+    registeredOwner.sends[0].settings.url === "https://sonicgidsempire.web.app/admin.html");
+  check("new profile name is saved before signup completes",
+    registeredOwner.user.displayName === "Test Owner");
+
+  const registeredClient = await registrationTest("client@example.com");
+  check("client signup verification returns to the dashboard",
+    registeredClient.sends[0].settings.url === "https://sonicgidsempire.web.app/dashboard.html");
+
+  const failedVerification = await registrationTest("okogbagideon28@gmail.com", async () => {
+    const err = new Error("Email delivery is temporarily unavailable.");
+    err.code = "auth/too-many-requests";
+    throw err;
+  });
+  check("verification-send failure clearly preserves the created account state",
+    !!(failedVerification.error && failedVerification.error.accountCreated &&
+      failedVerification.error.cause.code === "auth/too-many-requests"));
+
+  const unlistedContinueUrl = await registrationTest("okogbagideon28@gmail.com", async (user, settings) => {
+    if (settings) {
+      const err = new Error("Continue URL is not authorized.");
+      err.code = "auth/unauthorized-continue-uri";
+      throw err;
+    }
+  });
+  check("unlisted continue URLs fall back to Firebase's default verification email",
+    unlistedContinueUrl.sends.length === 2 && unlistedContinueUrl.sends[1].settings === undefined);
+
   let sb = await gateCase(null);
   check("signed-out visitor sees the sign-in block",
     !hidden(sb, "[data-admin-signin]") && hidden(sb, "[data-admin-panel]"));

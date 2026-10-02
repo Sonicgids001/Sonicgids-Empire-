@@ -31,7 +31,7 @@ dependencies to install. Deploy the folder anywhere; it runs as-is.
 | Thank you | `thank-you.html` | Post-submission confirmation |
 | **Boost panel** | `order.html` | Signed-in buy page: search plans → category → service → link → quantity → amount (₦) → **Continue** (orders start as **pending**) |
 | Sign in | `login.html` | Firebase email/password or Google sign-in |
-| Create account | `signup.html` | Firebase account creation |
+| Create account | `signup.html` | Firebase account creation; email/password sign-up sends an email verification link |
 | Reset password | `forgot-password.html` | Password reset email |
 | Dashboard | `dashboard.html` | Auth-gated wallet, top-up requests, **Boost panel**, My orders and Overview |
 | **Admin console** | `admin.html` | **Owner-only.** Process orders, **set the rate per 1,000 / min / max**, priorities and the catalogue |
@@ -77,13 +77,17 @@ bouncing signed-out visitors to `login.html`. That matters: the owner's quickest
 | State | What you see | What to do |
 | --- | --- | --- |
 | Signed out | **Continue with Google** + an owner email/password form | Sign in with the owner account |
-| Owner address, email not verified | A numbered 3-step card with **Send verification email** and **Re-check access** | Click the link Firebase emails you, then press **Re-check access** |
+| Owner address, email not verified | A numbered 3-step card with **Send verification email** and **Re-check access** | Open the verification link sent at registration (or resend), then press **Re-check access** |
 | Somebody else's account | *"This account does not have admin access"* + **Switch to the owner account** | Sign in with the owner Google account |
 | Owner, verified | The console | — |
 
 Notes:
 
-- **Google needs no verification email.** Google has already proven the mailbox, and the
+- **Email/password registration sends a verification email automatically.** For the owner
+  address, the link returns to `admin.html`; admin access remains locked until Firebase reports
+  the email as verified. The gate also has a resend option. This check is enforced again by the
+  Firestore rules.
+- **Google needs no separate verification email.** Google has already proven the mailbox, and the
   Firestore rules accept `sign_in_provider == 'google.com'` in place of `email_verified`.
 - **A verification that just landed is picked up automatically.** Firebase serves the profile
   cached at sign-in, so `emailVerified` can still read `false` after you click the link. Before
@@ -193,8 +197,8 @@ edited by hand. To add a brand new page, copy an existing page, change the `<tit
 **Running the checks:**
 
 ```bash
-node tools/test-workflow.js     # 72 assertions: admin identity, status workflow,
-                                # renderers, rules text and page wiring
+node tools/test-workflow.js     # 155 assertions: auth/verification flow, admin identity,
+                                # status workflow, renderers, rules text and page wiring
 ```
 
 Run this after changing anything in `assets/js/` or `firestore.rules`.
@@ -227,7 +231,8 @@ The site uses the `sonicgidsempire` Firebase project. The web config lives at th
 [Firebase console](https://console.firebase.google.com/project/sonicgidsempire):
 
 1. **Authentication → Sign-in method → Email/Password → Enable**, and also enable
-   **Google** if you want one-click owner access to the admin console.
+   **Google** if you want one-click owner access to the admin console. Registration uses Firebase's
+   built-in email-address verification template; customize its wording under **Authentication → Templates** if needed.
 2. **Authentication → Settings → Authorized domains** — add your custom domain when you connect it.
 3. **Firestore Database → Create database** (production mode). Then deploy the rules in this repo:
 
@@ -275,12 +280,12 @@ Security summary enforced by `firestore.rules`:
 await window.SGReady;                       // resolves once Firebase is ready
 
 // auth
-SG.signUp(email, password, name)
+SG.signUp(email, password, name)              // creates account + sends verification email
 SG.signIn(email, password)
 SG.signInWithGoogle()
 SG.signOut()
 SG.resetPassword(email)
-SG.sendVerificationEmail()
+SG.sendVerificationEmail([user])            // send/resend to current or specified user
 SG.onUser(cb)
 
 // identity
@@ -378,7 +383,8 @@ Update these in one place per page — the footer, contact page and service CTAs
 - [ ] **Boost services → Import starter catalogue**, then check a rate per 1,000, min/max and priority
 - [ ] Open `/pricing.html` logged out and confirm the live rate table shows the same ₦ rates
 - [ ] Open `/order.html?preview=1` to review the boost panel layout without signing in
-- [ ] Create a test account, pick a service, enter a quantity and confirm the **amount (₦)** = qty ÷ 1,000 × rate
+- [ ] Create a test account and confirm a Firebase email-verification link arrives; for the owner email, verify it and confirm `admin.html` opens after re-checking access
+- [ ] Pick a service, enter a quantity and confirm the **amount (₦)** = qty ÷ 1,000 × rate
 - [ ] Try a quantity below the minimum and above the maximum — both must be blocked with a message
 - [ ] Place the order and confirm it saves as **pending** with `ratePer1000` and `quantityNum` set
 - [ ] Confirm the dashboard **Boost** tab and **My orders** tab both update after ordering

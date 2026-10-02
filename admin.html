@@ -145,11 +145,12 @@
         <div data-admin-unverified class="hide">
           <div class="alert show alert-info mt-3">
             <strong>One step left:</strong> this address still has to be confirmed. Firestore blocks admin
-            reads until the mailbox is proven, so the console stays locked for now.
+            reads until the mailbox is proven, so the console stays locked for now. Email/password registration
+            sends a verification link automatically.
           </div>
           <ol class="gate-steps">
-            <li>Press <strong>Send verification email</strong> below.</li>
-            <li>Open the link Firebase emails you (check spam if it is not there).</li>
+            <li>Open the verification link we emailed to this address. If you cannot find it, press <strong>Send verification email</strong> below.</li>
+            <li>Check your inbox and spam/junk folder for the Firebase verification email.</li>
             <li>Come back and press <strong>Re-check access</strong> — no need to sign in again.</li>
           </ol>
           <div class="btn-row mt-3" style="display:grid;gap:10px">
