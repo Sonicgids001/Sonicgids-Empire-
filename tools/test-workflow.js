@@ -252,6 +252,7 @@ check("gate has a dedicated unverified-owner step", adminHtml.includes("data-adm
 check("gate can resend the verification email", adminHtml.includes("data-admin-send-verify"));
 check("gate can re-check access without signing in again", adminHtml.includes("data-admin-recheck"));
 check("gate offers Google sign-in", adminHtml.includes("data-admin-google"));
+check("unverified owner can switch directly to Google sign-in", adminHtml.includes("data-admin-google-switch"));
 check("gate offers email + password sign-in", /data-auth-form="login"/.test(adminHtml));
 check("gate explains who is allowed", adminHtml.includes("id=\"adminEmailHint\""));
 check("admin.js routes the unverified owner to its own state",
@@ -328,7 +329,11 @@ function makeGateSandbox() {
         toggle: (c, on) => (on ? node._classes.add(c) : node._classes.delete(c)),
         contains: (c) => node._classes.has(c)
       },
-      addEventListener() {}, setAttribute() {}, appendChild() {}, focus() {},
+      events: {},
+      addEventListener(type, handler) {
+        (node.events[type] || (node.events[type] = [])).push(handler);
+      },
+      setAttribute() {}, appendChild() {}, focus() {},
       style: {}, innerHTML: "", textContent: "", value: "", dataset: {}, disabled: false,
       querySelector: () => null, querySelectorAll: () => [],
       closest: () => null, scrollIntoView() {}
@@ -492,6 +497,22 @@ const hidden = (sb, sel) => sb.el(sel)._classes.has("hide");
   sb = await gateCase(ownerGoogle);
   check("a Google owner opens the console with no verification email",
     !hidden(sb, "[data-admin-panel]"));
+
+  sb = await gateCase(ownerUnverified);
+  let signedOutBeforeGoogle = false;
+  let googleSwitchUser = null;
+  sb.window.SG.signOut = async () => { signedOutBeforeGoogle = true; };
+  sb.window.SG.signInWithGoogle = async () => {
+    googleSwitchUser = ownerGoogle;
+    sb.window.SG.currentUser = ownerGoogle;
+    return ownerGoogle;
+  };
+  const googleSwitchHandler = sb.el("[data-admin-google-switch]").events.click[0];
+  await googleSwitchHandler({ target: sb.el("[data-admin-google-switch]") });
+  check("unverified owner can switch directly to Google sign-in",
+    signedOutBeforeGoogle && googleSwitchUser === ownerGoogle);
+  check("successful Google switch opens the admin console",
+    !hidden(sb, "[data-admin-panel]") && hidden(sb, "[data-admin-gate]"));
 
   console.log(`\n${pass} passed, ${fail} failed\n`);
   process.exit(fail === 0 ? 0 : 1);

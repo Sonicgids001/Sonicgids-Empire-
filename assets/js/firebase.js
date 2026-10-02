@@ -351,6 +351,10 @@ SG.signInWithGoogle = async function () {
   const provider = new GoogleAuthProvider();
   provider.setCustomParameters({ prompt: "select_account" });
   const cred = await signInWithPopup(SG.auth, provider);
+  /* Update the shared user immediately; the auth-state listener may run just
+     after the popup promise resolves, while page-specific gates already need
+     the fresh Google identity. */
+  SG.currentUser = cred.user;
   SG.logEvent("login", { method: "google" });
   return cred.user;
 };
