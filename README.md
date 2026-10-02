@@ -31,7 +31,7 @@ dependencies to install. Deploy the folder anywhere; it runs as-is.
 | Thank you | `thank-you.html` | Post-submission confirmation |
 | **Boost panel** | `order.html` | Signed-in buy page: search plans → category → service → link → quantity → amount (₦) → **Continue** (orders start as **pending**) |
 | Sign in | `login.html` | Firebase email/password or Google sign-in |
-| Create account | `signup.html` | Firebase account creation |
+| Create account | `signup.html` | Firebase account creation + email verification link (Google accounts are verified by Google) |
 | Reset password | `forgot-password.html` | Password reset email |
 | Dashboard | `dashboard.html` | Auth-gated wallet, top-up requests, **Boost panel**, My orders and Overview |
 | **Admin console** | `admin.html` | **Owner-only.** Process orders, **set the rate per 1,000 / min / max**, priorities and the catalogue |
@@ -242,6 +242,16 @@ The site uses the `sonicgidsempire` Firebase project. The web config lives at th
 5. **Analytics** is enabled by the measurement ID already in the config. It only loads on
    HTTPS or localhost, and never blocks page rendering.
 
+### Account email verification
+
+Email/password registration calls Firebase Authentication's `sendEmailVerification` immediately
+after creating the account. The signup page confirms which address received the link and lets the
+user resend it; the link returns to the sign-in page with a verified confirmation. Google sign-in
+is already mailbox-verified by Google, so it does not send a second link. If you use a custom
+site domain, add it under **Authentication → Settings → Authorized domains** so Firebase can
+return the verification link to the site. If the continue URL is not authorised, Firebase still
+sends its standard verification email and completes verification on its hosted action page.
+
 ### Data model
 
 | Collection | Written by | Fields |
@@ -275,12 +285,12 @@ Security summary enforced by `firestore.rules`:
 await window.SGReady;                       // resolves once Firebase is ready
 
 // auth
-SG.signUp(email, password, name)
+SG.signUp(email, password, name)           // creates the account + sends a verification email
 SG.signIn(email, password)
 SG.signInWithGoogle()
 SG.signOut()
 SG.resetPassword(email)
-SG.sendVerificationEmail()
+SG.sendVerificationEmail(user, continueUrl)   // both optional; defaults to current user and page
 SG.onUser(cb)
 
 // identity

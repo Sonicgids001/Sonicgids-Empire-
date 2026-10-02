@@ -260,6 +260,23 @@ check("admin.js routes the unverified owner to its own state",
 check("login page offers Google sign-in", read("login.html").includes("data-google-signin"));
 check("signup page offers Google sign-in", read("signup.html").includes("data-google-signin"));
 check("auth.js wires the Google buttons", read("assets/js/auth.js").includes("data-google-signin"));
+const signupSource = read("signup.html");
+const authSource = read("assets/js/auth.js");
+const firebaseSource = read("assets/js/firebase.js");
+check("password registration sends a Firebase verification email",
+  /SG\.sendVerificationEmail\(cred\.user, continueUrl\)/.test(firebaseSource));
+check("verification email returns to the verified sign-in state",
+  /new URL\("login\.html\?verified=1", location\.href\)/.test(firebaseSource) &&
+  authSource.includes('get("verified") === "1"'));
+check("signup page shows an email verification confirmation panel",
+  signupSource.includes("data-verification-panel") && signupSource.includes("data-verification-address"));
+check("signup page supports resending the verification email",
+  signupSource.includes("data-resend-verification") && authSource.includes("sendVerificationEmail(current || undefined)"));
+check("signup copy distinguishes email and Google verification",
+  signupSource.includes("Email sign-ups receive a verification link") &&
+  !/no verification email to chase/i.test(signupSource));
+check("auth form preserves the account-created state when mail delivery fails",
+  authSource.includes("err.accountCreated && err.user"));
 
 const orderHtml = read("order.html");
 check("private pages have login route gate", orderHtml.includes("data-auth-required") && orderHtml.includes("assets/js/page-guard.js"));

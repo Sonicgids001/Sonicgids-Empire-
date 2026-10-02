@@ -159,7 +159,9 @@ const friendlyAuthError = (err) => {
     "auth/cancelled-popup-request": "Sign-in was cancelled. Try again.",
     "auth/account-exists-with-different-credential":
       "That email is already registered with a different sign-in method.",
-    "auth/requires-recent-login": "Please sign out and sign in again to continue."
+    "auth/requires-recent-login": "Please sign out and sign in again to continue.",
+    "auth/verification-email-failed":
+      "Your account was created, but the verification email could not be sent. Please try resending it."
   };
   return map[code] || (err && err.message) || "Something went wrong. Please try again.";
 };
@@ -170,12 +172,29 @@ SG.signUp = async function (email, password, name) {
   await readyPromise;
   if (!SG.auth) throw new Error("Authentication is unavailable right now.");
   const cred = await SG._mods.auth.createUserWithEmailAndPassword(SG.auth, email, password);
+  SG.currentUser = cred.user;
   if (name) {
     try {
       await SG._mods.auth.updateProfile(cred.user, { displayName: name });
     } catch (e) { /* non-fatal */ }
   }
+
   SG.logEvent("sign_up", { method: "password" });
+
+  /* Creating a password account is not complete until the mailbox has a
+     verification link. Keep the new user on the error so the form can show a
+     recovery/resend state if Firebase rejects the email request. */
+  try {
+    const continueUrl = new URL("login.html?verified=1", location.href).href;
+    await SG.sendVerificationEmail(cred.user, continueUrl);
+  } catch (err) {
+    const wrapped = new Error("The verification email could not be sent.");
+    wrapped.code = "auth/verification-email-failed";
+    wrapped.accountCreated = true;
+    wrapped.user = cred.user;
+    wrapped.cause = err;
+    throw wrapped;
+  }
   return cred.user;
 };
 
@@ -338,20 +357,23 @@ SG.signInWithGoogle = async function () {
   return cred.user;
 };
 
-SG.sendVerificationEmail = async function () {
+SG.sendVerificationEmail = async function (user, continueUrl) {
   await readyPromise;
-  if (!SG.auth || !SG.currentUser) throw new Error("Sign in first, then request the email.");
+  const targetUser = user || SG.currentUser || (SG.auth && SG.auth.currentUser);
+  if (!SG.auth || !targetUser) throw new Error("Sign in first, then request the email.");
   const { sendEmailVerification } = SG._mods.auth;
-  /* Ask Firebase to send the owner back to this page after they click the
-     link, so the console can re-check access. Falls back to a plain email if
-     the current domain is not an authorised continue URL. */
+  /* Send users back to the page that can continue their flow. The current
+     page remains the default for the admin's verification gate. */
   try {
-    await sendEmailVerification(SG.currentUser, {
-      url: location.href,
+    await sendEmailVerification(targetUser, {
+      url: continueUrl || location.href,
       handleCodeInApp: false
     });
   } catch (err) {
-    await sendEmailVerification(SG.currentUser);
+    /* Firebase only accepts continue URLs on authorised domains. If this
+       preview/custom domain is not configured yet, still send the standard
+       verification email rather than failing account creation. */
+    await sendEmailVerification(targetUser);
   }
 };
 

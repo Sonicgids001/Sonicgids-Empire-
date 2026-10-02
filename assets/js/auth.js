@@ -110,6 +110,58 @@
     const mode = form.dataset.authForm; // login | signup | reset
     const alertEl = $("[data-auth-alert]", form) || $("[data-auth-alert]");
     const submit = $('button[type="submit"]', form);
+    const verificationPanel = $("[data-verification-panel]");
+    const resendVerification = $("[data-resend-verification]");
+    const verificationAddress = $("[data-verification-address]");
+    const verificationNote = $("[data-verification-note]");
+    const signupAlternatives = $("[data-signup-alternatives]");
+
+    function showVerificationPanel(user, emailSent) {
+      const address = (user && user.email) || $('input[name="email"]', form).value.trim();
+      if (form) form.classList.add("hide");
+      if (signupAlternatives) signupAlternatives.classList.add("hide");
+      if (verificationAddress) verificationAddress.textContent = address;
+      if (verificationPanel) verificationPanel.classList.remove("hide");
+      if (verificationNote) {
+        verificationNote.textContent = emailSent
+          ? "After verifying your address, return here and sign in."
+          : "Your account exists, but we could not send the link. Try again below.";
+      }
+      setAlert(
+        alertEl,
+        emailSent
+          ? "Account created. Check your inbox to verify your email."
+          : "Your account was created, but the verification email could not be sent.",
+        emailSent ? "success" : "error"
+      );
+    }
+
+    if (mode === "login" && new URLSearchParams(location.search).get("verified") === "1") {
+      setAlert(alertEl, "Email verified successfully. Sign in to continue.", "success");
+    }
+
+    if (resendVerification) {
+      resendVerification.addEventListener("click", async () => {
+        if (verificationNote) verificationNote.textContent = "";
+        buttonBusy(resendVerification, true, "Sending…");
+        try {
+          const current = window.SG.currentUser || (window.SG.auth && window.SG.auth.currentUser);
+          if (current && current.emailVerified) {
+            if (verificationNote) verificationNote.textContent = "This email is already verified. You can sign in now.";
+          } else {
+            await window.SG.sendVerificationEmail(current || undefined);
+            if (verificationNote) verificationNote.textContent = "Verification email sent again. Check your inbox and spam folder.";
+          }
+        } catch (err) {
+          const message = window.SG && window.SG.friendlyError
+            ? window.SG.friendlyError(err)
+            : (err && err.message) || "Could not send the verification email. Try again.";
+          if (verificationNote) verificationNote.textContent = message;
+        } finally {
+          buttonBusy(resendVerification, false);
+        }
+      });
+    }
 
     form.addEventListener("submit", async (e) => {
       e.preventDefault();
@@ -150,9 +202,8 @@
 
       try {
         if (mode === "signup") {
-          await window.SG.signUp(email, password, name);
-          setAlert(alertEl, "Account created. Taking you to your dashboard…", "success");
-          setTimeout(() => (location.href = safeNext("dashboard.html")), 900);
+          const user = await window.SG.signUp(email, password, name);
+          showVerificationPanel(user, true);
         } else if (mode === "login") {
           const user = await window.SG.signIn(email, password);
           const isOwner = window.SG.isAdminEmail && window.SG.isAdminEmail(user.email);
@@ -175,11 +226,15 @@
           form.reset();
         }
       } catch (err) {
-        const msg =
-          window.SG && window.SG.friendlyError
-            ? window.SG.friendlyError(err)
-            : (err && err.message) || "Something went wrong.";
-        setAlert(alertEl, msg, "error");
+        if (mode === "signup" && err && err.accountCreated && err.user) {
+          showVerificationPanel(err.user, false);
+        } else {
+          const msg =
+            window.SG && window.SG.friendlyError
+              ? window.SG.friendlyError(err)
+              : (err && err.message) || "Something went wrong.";
+          setAlert(alertEl, msg, "error");
+        }
       } finally {
         buttonBusy(submit, false);
       }
