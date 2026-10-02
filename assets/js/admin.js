@@ -770,8 +770,11 @@
      hand Firestore an ID token with email_verified: false) moments after the
      owner clicks the verification link. A blocked owner gets one automatic
      refresh before the gate is shown, so a verified address is never told it
-     has no access. */
+     has no access. The revision also prevents a slow refresh for a previous
+     session from replacing the state of a newer Google sign-in. */
+  let accessRevision = 0;
   async function evaluateAccess(user) {
+    const revision = ++accessRevision;
     if (!user) {
       renderIdentity(null);
       return showGate("signed-out");
@@ -784,12 +787,14 @@
     let status = statusOf(user);
     if (status === "owner-unverified" && window.SG.refreshUser) {
       const fresh = await window.SG.refreshUser();
+      if (revision !== accessRevision) return;
       if (fresh) {
         user = fresh;
         renderIdentity(user);
         status = statusOf(user);
       }
     }
+    if (revision !== accessRevision) return;
     if (status === "owner") return showPanel(user);
     return showGate(status === "owner-unverified" ? "unverified" : status);
   }
@@ -803,7 +808,8 @@
         const original = googleBtn.textContent;
         googleBtn.textContent = "Opening Google…";
         try {
-          await window.SG.signInWithGoogle();
+          const user = await window.SG.signInWithGoogle();
+          await evaluateAccess(user);
         } catch (err) {
           if (alertEl) {
             alertEl.className = "alert show alert-error";
@@ -814,6 +820,31 @@
         } finally {
           googleBtn.disabled = false;
           googleBtn.textContent = original;
+        }
+      });
+    }
+
+    const googleSwitchBtn = $("[data-admin-google-switch]");
+    if (googleSwitchBtn) {
+      googleSwitchBtn.addEventListener("click", async () => {
+        const alertEl = $("[data-admin-gate-alert]");
+        const original = googleSwitchBtn.textContent;
+        googleSwitchBtn.disabled = true;
+        googleSwitchBtn.textContent = "Opening Google…";
+        try {
+          await window.SG.signOut();
+          const user = await window.SG.signInWithGoogle();
+          await evaluateAccess(user);
+        } catch (err) {
+          if (alertEl) {
+            alertEl.className = "alert show alert-error";
+            alertEl.textContent =
+              (window.SG.friendlyError && window.SG.friendlyError(err)) ||
+              "Google sign-in failed. Check that the selected Google account is the owner account.";
+          }
+        } finally {
+          googleSwitchBtn.disabled = false;
+          googleSwitchBtn.textContent = original;
         }
       });
     }
