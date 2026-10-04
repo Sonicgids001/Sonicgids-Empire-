@@ -195,7 +195,7 @@ markers.
 
 1. Edit the header/footer in `index.html`.
 2. Run `node tools/sync-shared.js` — every other page is updated to match.
-3. `404.html` is skipped on purpose because it uses root-absolute links.
+3. `404.html` is skipped on purpose because it has a host-aware `<base>` element for Firebase and GitHub Pages.
 
 The script finds the blocks by structure, so it also repairs pages where the nav or footer was
 edited by hand. To add a brand new page, copy an existing page, change the `<title>`,

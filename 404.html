@@ -24,18 +24,29 @@
 <link rel="icon" type="image/webp" href="https://res.cloudinary.com/wfcrf1ps/image/upload/f_auto,q_auto/WhatsApp_Image_2026-08-15_at_3.27.38_PM">
 <link rel="apple-touch-icon" href="https://res.cloudinary.com/wfcrf1ps/image/upload/f_auto,q_auto/WhatsApp_Image_2026-08-15_at_3.27.38_PM">
 
+<!-- GitHub Pages serves this file for deep links under the project path.
+     Set a host-aware base so the error page stays styled on both hosts. -->
+<script>
+  (function () {
+    var base = window.location.hostname.endsWith(".github.io")
+      ? "/Sonicgids-Empire-/"
+      : "/";
+    document.write('<base href="' + base + '">');
+  }());
+</script>
+
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/assets/css/style.css">
-<link rel="stylesheet" href="/assets/css/pages.css">
+<link rel="stylesheet" href="assets/css/style.css">
+<link rel="stylesheet" href="assets/css/pages.css">
 
 </head>
 <body data-page="404">
 <header class="site-header">
   <div class="container">
     <nav class="nav" aria-label="Main navigation">
-      <a class="brand" href="/index.html">
+      <a class="brand" href="index.html">
         <span class="brand-mark"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M3 8.5l3.4 3L9.6 5l2.4 4.2L14.4 5l3.2 6.5 3.4-3-1.5 10.2H4.5L3 8.5Z" fill="currentColor"/></svg></span>
         <span class="brand-text">
           <span class="brand-name">Sonicgids</span>
@@ -44,27 +55,27 @@
       </a>
       <div class="nav-links">
         <div class="has-drop">
-          <a class="nav-link" href="/services.html">Services <svg class="chev" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></a>
+          <a class="nav-link" href="services.html">Services <svg class="chev" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></a>
           <div class="drop">
-            <a href="/service-social.html"><span class="dt">Social Media Management</span><span class="dd">Strategy, content &amp; community</span></a>
-            <a href="/service-ads.html"><span class="dt">Paid Advertising</span><span class="dd">Meta, TikTok, Google &amp; X</span></a>
-            <a href="/service-content.html"><span class="dt">Content &amp; Creative</span><span class="dd">Short-form video, design, UGC</span></a>
-            <a href="/service-seo.html"><span class="dt">SEO &amp; Web</span><span class="dd">Rank, convert, measure</span></a>
-            <a href="/service-influencer.html"><span class="dt">Influencer Marketing</span><span class="dd">Creator sourcing &amp; campaigns</span></a>
-            <a href="/services.html"><span class="dt">All services</span><span class="dd">See the full list</span></a>
+            <a href="service-social.html"><span class="dt">Social Media Management</span><span class="dd">Strategy, content &amp; community</span></a>
+            <a href="service-ads.html"><span class="dt">Paid Advertising</span><span class="dd">Meta, TikTok, Google &amp; X</span></a>
+            <a href="service-content.html"><span class="dt">Content &amp; Creative</span><span class="dd">Short-form video, design, UGC</span></a>
+            <a href="service-seo.html"><span class="dt">SEO &amp; Web</span><span class="dd">Rank, convert, measure</span></a>
+            <a href="service-influencer.html"><span class="dt">Influencer Marketing</span><span class="dd">Creator sourcing &amp; campaigns</span></a>
+            <a href="services.html"><span class="dt">All services</span><span class="dd">See the full list</span></a>
           </div>
         </div>
-        <a class="nav-link" href="/pricing.html">Boost Rates</a>
-        <a class="nav-link" href="/case-studies.html">Work</a>
-        <a class="nav-link" href="/about.html">About</a>
-        <a class="nav-link" href="/contact.html">Contact</a>
+        <a class="nav-link" href="pricing.html">Boost Rates</a>
+        <a class="nav-link" href="case-studies.html">Work</a>
+        <a class="nav-link" href="about.html">About</a>
+        <a class="nav-link" href="contact.html">Contact</a>
       </div>
       <div class="nav-actions">
-        <a class="btn btn-ghost btn-sm" href="/login.html" data-auth-when="out">Sign in</a>
-        <a class="btn btn-ghost btn-sm hide" href="/admin.html" data-auth-when="admin">Admin</a>
-        <a class="btn btn-ghost btn-sm hide" href="/dashboard.html" data-auth-when="in">Dashboard</a>
-        <a class="btn btn-gold btn-sm hide" href="/order.html" data-auth-when="in">New boost</a>
-        <a class="btn btn-gold btn-sm" href="/signup.html" data-auth-when="out">Get started</a>
+        <a class="btn btn-ghost btn-sm" href="login.html" data-auth-when="out">Sign in</a>
+        <a class="btn btn-ghost btn-sm hide" href="admin.html" data-auth-when="admin">Admin</a>
+        <a class="btn btn-ghost btn-sm hide" href="dashboard.html" data-auth-when="in">Dashboard</a>
+        <a class="btn btn-gold btn-sm hide" href="order.html" data-auth-when="in">New boost</a>
+        <a class="btn btn-gold btn-sm" href="signup.html" data-auth-when="out">Get started</a>
         <button class="burger" type="button" aria-label="Open menu" aria-expanded="false" aria-controls="mobileNav">
           <span></span><span></span><span></span>
         </button>
@@ -75,26 +86,26 @@
 
 <div class="mobile-nav" id="mobileNav">
   <nav aria-label="Mobile navigation">
-    <a href="/index.html">Home</a>
-    <a href="/services.html">Services</a>
+    <a href="index.html">Home</a>
+    <a href="services.html">Services</a>
     <div class="sub">
-      <a href="/service-social.html">Social Media Management</a>
-      <a href="/service-ads.html">Paid Advertising</a>
-      <a href="/service-content.html">Content &amp; Creative</a>
-      <a href="/service-seo.html">SEO &amp; Web</a>
-      <a href="/service-influencer.html">Influencer Marketing</a>
+      <a href="service-social.html">Social Media Management</a>
+      <a href="service-ads.html">Paid Advertising</a>
+      <a href="service-content.html">Content &amp; Creative</a>
+      <a href="service-seo.html">SEO &amp; Web</a>
+      <a href="service-influencer.html">Influencer Marketing</a>
     </div>
-    <a href="/pricing.html">Boost Rates</a>
-    <a href="/case-studies.html">Work</a>
-    <a href="/blog.html">Insights</a>
-    <a href="/about.html">About</a>
-    <a href="/contact.html">Contact</a>
+    <a href="pricing.html">Boost Rates</a>
+    <a href="case-studies.html">Work</a>
+    <a href="blog.html">Insights</a>
+    <a href="about.html">About</a>
+    <a href="contact.html">Contact</a>
     <div class="m-actions">
-      <a class="btn btn-gold btn-block hide" href="/order.html" data-auth-when="in">New boost order</a>
-      <a class="btn btn-gold btn-block" href="/signup.html" data-auth-when="out">Create free account</a>
-      <a class="btn btn-ghost btn-block hide" href="/dashboard.html" data-auth-when="in">My dashboard</a>
-      <a class="btn btn-ghost btn-block" href="/login.html" data-auth-when="out">Sign in</a>
-      <a class="btn btn-ghost btn-block hide" href="/admin.html" data-auth-when="admin">Admin console</a>
+      <a class="btn btn-gold btn-block hide" href="order.html" data-auth-when="in">New boost order</a>
+      <a class="btn btn-gold btn-block" href="signup.html" data-auth-when="out">Create free account</a>
+      <a class="btn btn-ghost btn-block hide" href="dashboard.html" data-auth-when="in">My dashboard</a>
+      <a class="btn btn-ghost btn-block" href="login.html" data-auth-when="out">Sign in</a>
+      <a class="btn btn-ghost btn-block hide" href="admin.html" data-auth-when="admin">Admin console</a>
       <button class="btn btn-white btn-block hide" type="button" data-sign-out data-auth-when="in">Sign out</button>
     </div>
   </nav>
@@ -110,22 +121,22 @@
     <h1 class="mt-2">This page has left the grid</h1>
     <p class="lead mt-2">The link may be broken, or the page may have moved. Let's get you back to something useful.</p>
     <div class="btn-row mt-4" style="justify-content:center">
-      <a class="btn btn-gold btn-lg" href="/index.html">Back to homepage</a>
-      <a class="btn btn-ghost btn-lg" href="/contact.html">Contact us</a>
+      <a class="btn btn-gold btn-lg" href="index.html">Back to homepage</a>
+      <a class="btn btn-ghost btn-lg" href="contact.html">Contact us</a>
     </div>
 
     <div class="grid grid-3 mt-4" style="text-align:left">
-      <a class="card" href="/services.html">
+      <a class="card" href="services.html">
         <div class="card-icon">🧭</div>
         <h3>Services</h3>
         <p>Five ways we grow brands on social, from content to paid media.</p>
       </a>
-      <a class="card" href="/case-studies.html">
+      <a class="card" href="case-studies.html">
         <div class="card-icon">📊</div>
         <h3>Case studies</h3>
         <p>Real campaigns, tracked results and the numbers behind them.</p>
       </a>
-      <a class="card" href="/blog.html">
+      <a class="card" href="blog.html">
         <div class="card-icon">📝</div>
         <h3>Insights</h3>
         <p>Playbooks and tactics you can apply to your own accounts.</p>
@@ -139,7 +150,7 @@
   <div class="container">
     <div class="footer-grid">
       <div class="footer-brand">
-        <a class="brand" href="/index.html">
+        <a class="brand" href="index.html">
           <span class="brand-mark"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M3 8.5l3.4 3L9.6 5l2.4 4.2L14.4 5l3.2 6.5 3.4-3-1.5 10.2H4.5L3 8.5Z" fill="currentColor"/></svg></span>
           <span class="brand-text">
             <span class="brand-name">Sonicgids</span>
@@ -159,33 +170,33 @@
       <div class="footer-col">
         <h4>Services</h4>
         <ul>
-          <li><a href="/service-social.html">Social Media Management</a></li>
-          <li><a href="/service-ads.html">Paid Advertising</a></li>
-          <li><a href="/service-content.html">Content &amp; Creative</a></li>
-          <li><a href="/service-seo.html">SEO &amp; Web</a></li>
-          <li><a href="/services.html">All services</a></li>
+          <li><a href="service-social.html">Social Media Management</a></li>
+          <li><a href="service-ads.html">Paid Advertising</a></li>
+          <li><a href="service-content.html">Content &amp; Creative</a></li>
+          <li><a href="service-seo.html">SEO &amp; Web</a></li>
+          <li><a href="services.html">All services</a></li>
         </ul>
       </div>
 
       <div class="footer-col">
         <h4>Company</h4>
         <ul>
-          <li><a href="/about.html">About</a></li>
-          <li><a href="/case-studies.html">Case studies</a></li>
-          <li><a href="/blog.html">Insights</a></li>
-          <li><a href="/faq.html">FAQ</a></li>
-          <li><a href="/contact.html">Contact</a></li>
+          <li><a href="about.html">About</a></li>
+          <li><a href="case-studies.html">Case studies</a></li>
+          <li><a href="blog.html">Insights</a></li>
+          <li><a href="faq.html">FAQ</a></li>
+          <li><a href="contact.html">Contact</a></li>
         </ul>
       </div>
 
       <div class="footer-col">
         <h4>Your account</h4>
         <ul>
-          <li><a href="/order.html">Boost panel</a></li>
-          <li><a href="/pricing.html">Boost rates</a></li>
-          <li><a href="/dashboard.html">Dashboard</a></li>
-          <li><a href="/login.html">Sign in</a></li>
-          <li><a href="/signup.html">Create account</a></li>
+          <li><a href="order.html">Boost panel</a></li>
+          <li><a href="pricing.html">Boost rates</a></li>
+          <li><a href="dashboard.html">Dashboard</a></li>
+          <li><a href="login.html">Sign in</a></li>
+          <li><a href="signup.html">Create account</a></li>
         </ul>
         <form class="newsletter-form mt-2" data-newsletter>
           <input type="email" placeholder="Email for growth tips" aria-label="Email address" required>
@@ -197,8 +208,8 @@
     <div class="footer-bottom">
       <p>&copy; <span data-year>2026</span> Sonicgids Empire &middot; Warri, Delta State, Nigeria</p>
       <div class="fb-links">
-        <a href="/privacy.html">Privacy</a>
-        <a href="/terms.html">Terms</a>
+        <a href="privacy.html">Privacy</a>
+        <a href="terms.html">Terms</a>
         <a href="mailto:okogbagideon28@gmail.com">Email</a>
         <a href="https://wa.me/2347038322626" target="_blank" rel="noopener">WhatsApp</a>
       </div>
@@ -209,8 +220,8 @@
 <a class="to-top" href="#" aria-label="Back to top"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 19V5M5 12l7-7 7 7" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></a>
 
 
-<script src="/assets/js/firebase.js"></script>
-<script src="/assets/js/site.js"></script>
-<script src="/assets/js/auth.js"></script>
+<script src="assets/js/firebase.js"></script>
+<script src="assets/js/site.js"></script>
+<script src="assets/js/auth.js"></script>
 </body>
 </html>
