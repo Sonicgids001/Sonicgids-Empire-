@@ -12,6 +12,10 @@
   if (!document.body || !document.body.hasAttribute("data-auth-required")) return;
 
   const inlineGate = document.body.dataset.authGate === "inline";
+  /* ?preview=1 renders the page shell without a session so the layout can be
+     reviewed (and linked to) without an account. No private data is loaded —
+     Firestore rules remain the security boundary. */
+  const preview = new URLSearchParams(location.search).get("preview") === "1";
 
   function reveal() {
     document.documentElement.classList.remove("sg-auth-pending");
@@ -19,7 +23,7 @@
   }
 
   function showPrivatePage(user) {
-    if (user || inlineGate) {
+    if (user || inlineGate || preview) {
       reveal();
       if (inlineGate) document.dispatchEvent(new CustomEvent("sg:gate-ready"));
       return;
@@ -28,20 +32,22 @@
     location.replace("login.html?next=" + encodeURIComponent(next));
   }
 
+  if (preview) reveal();
+
   if (!window.SG || !window.SGReady) {
-    if (inlineGate) return reveal();
+    if (inlineGate || preview) return reveal();
     location.replace("login.html?error=auth-unavailable");
     return;
   }
   window.SGReady.then((sg) => {
     if (!sg.auth) {
-      if (inlineGate) return reveal();
+      if (inlineGate || preview) return reveal();
       location.replace("login.html?error=auth-unavailable");
       return;
     }
     sg.onUser(showPrivatePage);
   }).catch(() => {
-    if (inlineGate) return reveal();
+    if (inlineGate || preview) return reveal();
     location.replace("login.html?error=auth-unavailable");
   });
 })();

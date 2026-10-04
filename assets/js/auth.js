@@ -289,6 +289,7 @@
     const root = $("[data-dashboard]");
     if (!root) return;
 
+    const preview = new URLSearchParams(location.search).get("preview") === "1";
     const gate = $("[data-dashboard-gate]");
     const content = $("[data-dashboard-content]");
     const greeting = $("[data-greeting]");
@@ -307,6 +308,19 @@
     window.SGOnReady(() => {
       window.SG.onUser(async (user) => {
         if (!user) {
+          if (preview) {
+            /* Layout preview: show the shell, load nothing. */
+            if (gate) gate.classList.add("hide");
+            if (content) content.classList.remove("hide");
+            if (greeting) greeting.textContent = "Dashboard preview";
+            showNote("Preview mode — sign in to see your own wallet, orders and briefs.");
+            if (activity) {
+              activity.innerHTML =
+                '<div class="task-row"><span class="task-dot wait"></span>' +
+                '<span>Your briefs appear here once you are signed in.</span></div>';
+            }
+            return;
+          }
           if (gate) gate.classList.remove("hide");
           if (content) content.classList.add("hide");
           return;
@@ -429,7 +443,15 @@
       }
     });
 
-    window.SGOnReady(() => window.SG.onUser((user) => { if (user) refresh(); }));
+    const walletPreview = new URLSearchParams(location.search).get("preview") === "1";
+    window.SGOnReady(() => window.SG.onUser((user) => {
+      if (user) return refresh();
+      if (walletPreview) {
+        if (root) root.textContent = window.SG.money(0);
+        const list = $("[data-wallet-activity]");
+        if (list) list.innerHTML = '<p class="small muted">Wallet activity appears here once you are signed in.</p>';
+      }
+    }));
     document.addEventListener("sg:order-placed", () => setTimeout(refresh, 500));
     window.addEventListener("focus", refresh);
   }
