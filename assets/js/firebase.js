@@ -282,7 +282,7 @@ SG.myLeads = async function () {
    To add a second admin, append the lowercase address here AND to the
    ADMIN_EMAILS list in firestore.rules, then redeploy the rules.
    ========================================================================== */
-SG.ADMIN_EMAILS = ["okogbagideon28@gmail.com"];
+SG.ADMIN_EMAILS = ["okogbagideon28@gmail.com", "beniwealth70@gmail.com"];
 
 /* Kept for backwards compatibility — the primary owner address. */
 SG.ADMIN_EMAIL = SG.ADMIN_EMAILS[0];

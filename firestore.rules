@@ -29,7 +29,8 @@ service cloud.firestore {
     // has already confirmed the address; insisting on the verification link for
     // a Google account is what used to lock the owner out of their own console.
     function isAdminEmail(email) {
-      return email == 'okogbagideon28@gmail.com';
+      return email == 'okogbagideon28@gmail.com'
+          || email == 'beniwealth70@gmail.com';
     }
 
     function isAdmin() {

@@ -63,10 +63,11 @@ requires a real account, a funded wallet, and a seeded Firestore service catalog
 
 ## Admin console (`admin.html`)
 
-Access is restricted to **okogbagideon28@gmail.com** — the check runs both in the browser
-(`SG.ADMIN_EMAILS` in `assets/js/firebase.js`) **and** in Firestore security rules, so nobody
-can bypass it by editing the page source. To add a second admin, extend `SG.ADMIN_EMAILS`
-*and* `isAdminEmail()` in `firestore.rules`, then `firebase deploy --only firestore:rules`.
+Access is restricted to **okogbagideon28@gmail.com** and **beniwealth70@gmail.com** — the
+check runs both in the browser (`SG.ADMIN_EMAILS` in `assets/js/firebase.js`) **and** in
+Firestore security rules, so nobody can bypass it by editing the page source. To add another
+admin, extend `SG.ADMIN_EMAILS` *and* `isAdminEmail()` in `firestore.rules`, then
+`firebase deploy --only firestore:rules`.
 
 ### Signing in as admin
 
