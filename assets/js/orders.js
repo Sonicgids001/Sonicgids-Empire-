@@ -168,9 +168,15 @@
       }
     }
 
+    const preview = new URLSearchParams(location.search).get("preview") === "1";
+
     window.SGOnReady(() => {
       window.SG.onUser((user) => {
-        if (!user) return;
+        if (!user) {
+          /* Layout preview — show the real empty state instead of "loading". */
+          if (preview) renderList(container, []);
+          return;
+        }
         load();
       });
     });

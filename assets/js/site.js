@@ -15,22 +15,24 @@
       toastEl = document.createElement("div");
       toastEl.setAttribute("role", "status");
       toastEl.style.cssText = [
-        "position:fixed", "left:50%", "bottom:28px", "transform:translate(-50%,20px)",
-        "z-index:2000", "max-width:min(92vw,460px)", "padding:14px 20px",
-        "border-radius:14px", "font-size:.89rem", "font-weight:500",
-        "box-shadow:0 24px 60px -20px rgba(0,0,0,.9)",
-        "border:1px solid rgba(212,175,55,.35)", "background:rgba(16,16,23,.97)",
-        "color:#ececf1", "backdrop-filter:blur(12px)", "opacity:0",
-        "transition:opacity .3s, transform .3s", "line-height:1.5"
+        "position:fixed", "left:50%", "bottom:28px", "transform:translate(-50%,16px)",
+        "z-index:2000", "max-width:min(92vw,460px)", "padding:13px 18px",
+        "border-radius:12px", "font-size:.89rem", "font-weight:500",
+        "box-shadow:0 18px 40px -18px rgba(16,24,40,.35)",
+        "border:1px solid #e6e8ee", "background:#ffffff",
+        "color:#15181f", "opacity:0",
+        "transition:opacity .25s, transform .25s", "line-height:1.5"
       ].join(";");
       document.body.appendChild(toastEl);
     }
     if (type === "error") {
-      toastEl.style.borderColor = "rgba(248,113,113,.5)";
-      toastEl.style.color = "#fca5a5";
+      toastEl.style.borderColor = "#f3c7c3";
+      toastEl.style.background = "#fdeceb";
+      toastEl.style.color = "#95241c";
     } else {
-      toastEl.style.borderColor = "rgba(212,175,55,.4)";
-      toastEl.style.color = "#f7e08a";
+      toastEl.style.borderColor = "#e6e8ee";
+      toastEl.style.background = "#ffffff";
+      toastEl.style.color = "#15181f";
     }
     toastEl.textContent = message;
     requestAnimationFrame(() => {

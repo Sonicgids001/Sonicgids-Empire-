@@ -8,6 +8,12 @@ and no retainer plans**.
 Built as a **plain static site** — HTML, CSS and vanilla JavaScript, no build step and no
 dependencies to install. Deploy the folder anywhere; it runs as-is.
 
+**Design system:** a light, minimal UI — white surfaces, one ink colour, one gold accent, flat
+1px borders and soft shadows. All tokens live at the top of `assets/css/style.css`; change
+`--gold-strong`, `--ink` or `--bg-soft` there and the whole site follows. Styles are split into
+`style.css` (tokens, layout, nav, footer, components), `pages.css` (marketing page blocks) and
+`admin.css` (dashboard shell, boost panel, rate card, admin console).
+
 ---
 
 ## Pages
@@ -33,7 +39,7 @@ dependencies to install. Deploy the folder anywhere; it runs as-is.
 | Sign in | `login.html` | Firebase email/password or Google sign-in |
 | Create account | `signup.html` | Firebase account creation; email/password sign-up sends an email verification link |
 | Reset password | `forgot-password.html` | Password reset email |
-| Dashboard | `dashboard.html` | Auth-gated wallet, top-up requests, **Boost panel**, My orders and Overview |
+| Dashboard | `dashboard.html` | Auth-gated app shell with a side menu: **New order** (boost panel), **My orders**, **Wallet** (balance, top-ups, activity) and **Activity** |
 | **Admin console** | `admin.html` | **Owner-only.** Process orders, **set the rate per 1,000 / min / max**, priorities and the catalogue |
 | 404 | `404.html` | Custom not-found page |
 | Legal | `privacy.html`, `terms.html` | Privacy policy and terms of service |
@@ -56,8 +62,8 @@ Also included: `sitemap.xml`, `robots.txt`, `firebase.json`, `firestore.rules`, 
 
 The boost panel is one shared component — `assets/js/panel.js` renders into any
 `[data-boost-panel]` element, so `order.html` and the dashboard **Boost** tab stay identical.
-Add `?preview=1` to either page to render a UI preview with the starter catalogue; checkout still
-requires a real account, a funded wallet, and a seeded Firestore service catalogue.
+Add `?preview=1` to `order.html` or `dashboard.html` to render the UI without signing in (the page
+guard lets the shell through, no private data is loaded); checkout still requires a real account, a funded wallet, and a seeded Firestore service catalogue.
 
 ---
 
@@ -369,8 +375,8 @@ Deploying from GitHub instead? Run the same command in a GitHub Action, or use
 | WhatsApp | +234 703 832 2626 |
 | Instagram | [@sonicgidsX](https://instagram.com/sonicgidsX) |
 | X | [@SonicgidsX](https://x.com/SonicgidsX) |
-| Colours | Gold `#d4af37` on near-black `#07070a` |
-| Fonts | Outfit (headings), Inter (body), Playfair Display (accents) |
+| Colours | Gold `#d9a51b` accent + ink `#12141a` on white `#ffffff` (light UI, see `assets/css/style.css` tokens) |
+| Fonts | Outfit (headings), Inter (body) |
 
 Update these in one place per page — the footer, contact page and service CTAs.
 
@@ -383,7 +389,7 @@ Update these in one place per page — the footer, contact page and service CTAs
 - [ ] Sign in with a *different* account and confirm it is refused admin access
 - [ ] **Boost services → Import starter catalogue**, then check a rate per 1,000, min/max and priority
 - [ ] Open `/pricing.html` logged out and confirm the live rate table shows the same ₦ rates
-- [ ] Open `/order.html?preview=1` to review the boost panel layout without signing in
+- [ ] Open `/order.html?preview=1` and `/dashboard.html?preview=1` to review the layouts without signing in
 - [ ] Create a test account and confirm a Firebase email-verification link arrives; for the owner email, verify it and confirm `admin.html` opens after re-checking access
 - [ ] Pick a service, enter a quantity and confirm the **amount (₦)** = qty ÷ 1,000 × rate
 - [ ] Try a quantity below the minimum and above the maximum — both must be blocked with a message
