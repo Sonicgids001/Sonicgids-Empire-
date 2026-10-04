@@ -12,8 +12,8 @@
  * Blocks are located by structure (not by comment markers), so it also
  * repairs pages where the footer or navigation has been edited by hand.
  *
- * 404.html is skipped on purpose: it uses root-absolute links (/index.html)
- * because it is served for URLs at any depth.
+ * 404.html is skipped on purpose: it has a host-aware <base> element so its
+ * links work on both the Firebase root domain and the GitHub Pages project path.
  */
 
 const fs = require("fs");
