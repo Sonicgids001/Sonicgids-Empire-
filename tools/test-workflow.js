@@ -76,12 +76,14 @@ const SG = fb.window.SG;
 
 check("admin email constant", SG.ADMIN_EMAIL === "okogbagideon28@gmail.com", SG.ADMIN_EMAIL);
 check("admin allowlist starts with the owner", SG.ADMIN_EMAILS[0] === "okogbagideon28@gmail.com");
-check("isAdminEmail matches owner", SG.isAdminEmail("okogbagideon28@gmail.com") === true);
+check("isAdminEmail matches primary owner", SG.isAdminEmail("okogbagideon28@gmail.com") === true);
+check("isAdminEmail matches second owner", SG.isAdminEmail("okogbaeladopere@gmail.com") === true);
 check("isAdminEmail is case-insensitive", SG.isAdminEmail("  OkogbaGideon28@Gmail.com ") === true);
 check("isAdminEmail rejects others", SG.isAdminEmail("someone@else.com") === false);
 check("isAdminEmail rejects blanks", SG.isAdminEmail("") === false && SG.isAdminEmail(null) === false);
-check("isAdminUser needs verified email",
-  SG.isAdminUser({ email: SG.ADMIN_EMAIL, emailVerified: false, providerData: [] }) === false);
+check("both allowlisted admins are exempt from email verification",
+  SG.isAdminUser({ email: SG.ADMIN_EMAIL, emailVerified: false, providerData: [] }) === true &&
+  SG.isAdminUser({ email: "okogbaeladopere@gmail.com", emailVerified: false, providerData: [] }) === true);
 check("isAdminUser allows verified owner",
   SG.isAdminUser({ email: SG.ADMIN_EMAIL, emailVerified: true, providerData: [] }) === true);
 check("isAdminUser allows Google owner",
@@ -94,8 +96,10 @@ console.log("\nfirebase.js — admin gate states");
 check("signed out reports signed-out", SG.adminStatus(null) === "signed-out");
 check("client account reports not-admin",
   SG.adminStatus({ email: "client@x.com", emailVerified: true, providerData: [] }) === "not-admin");
-check("unverified owner is its own state (not 'no access')",
-  SG.adminStatus({ email: SG.ADMIN_EMAIL, emailVerified: false, providerData: [] }) === "owner-unverified");
+check("unverified allowlisted owner reports owner for immediate console access",
+  SG.adminStatus({ email: SG.ADMIN_EMAIL, emailVerified: false, providerData: [] }) === "owner");
+check("second unverified allowlisted owner reports owner",
+  SG.adminStatus({ email: "okogbaeladopere@gmail.com", emailVerified: false, providerData: [] }) === "owner");
 check("verified owner reports owner",
   SG.adminStatus({ email: SG.ADMIN_EMAIL, emailVerified: true, providerData: [] }) === "owner");
 check("Google owner reports owner without a verification link",
@@ -103,6 +107,15 @@ check("Google owner reports owner without a verification link",
 check("signedInWithGoogle only for google providers",
   SG.signedInWithGoogle({ providerData: [{ providerId: "password" }] }) === false &&
   SG.signedInWithGoogle({ providerData: [{ providerId: "google.com" }] }) === true);
+check("regular password account needs verified email",
+  SG.isVerifiedUser({ email: "client@x.com", emailVerified: false, providerData: [{ providerId: "password" }] }) === false);
+check("verified client can access protected pages",
+  SG.isVerifiedUser({ email: "client@x.com", emailVerified: true, providerData: [{ providerId: "password" }] }) === true);
+check("Google client is treated as verified",
+  SG.isVerifiedUser({ email: "client@x.com", emailVerified: false, providerData: [{ providerId: "google.com" }] }) === true);
+check("admin verification exemption does not make email verified",
+  SG.isAdminUser({ email: SG.ADMIN_EMAIL, emailVerified: false, providerData: [] }) &&
+  !SG.isVerifiedUser({ email: SG.ADMIN_EMAIL, emailVerified: false, providerData: [] }));
 check("refreshUser exists so a stale emailVerified can be cleared",
   typeof SG.refreshUser === "function");
 
@@ -213,12 +226,16 @@ check("escaping prevents injection", !cardHtml.includes("<img src=x"), cardHtml.
 /* ---------------- rules text sanity ---------------- */
 console.log("\nfirestore.rules — admin enforcement");
 const rules = fs.readFileSync(path.join(ROOT, "firestore.rules"), "utf8");
-check("rules pin admin address", rules.includes("okogbagideon28@gmail.com"));
-check("rules require verified admin email", rules.includes("email_verified == true"));
-check("rules accept a Google sign-in as proof of the owner address",
+check("rules pin both admin addresses", rules.includes("okogbagideon28@gmail.com") && rules.includes("okogbaeladopere@gmail.com"));
+check("rules no longer include the replaced admin address", !rules.includes("beniwealth70@gmail.com"));
+check("client rules require verified email or Google sign-in",
+  /function verifiedUser\(\)[\s\S]{0,180}email_verified == true/.test(rules));
+check("rules accept a Google sign-in as proof of a client email",
   /sign_in_provider == 'google\.com'/.test(rules));
-check("rules gate admin access on the owner address",
-  /function isAdminEmail\(email\)[\s\S]{0,80}'okogbagideon28@gmail\.com'/.test(rules));
+check("admin rules bypass client email verification for the allowlist",
+  /function isAdmin\(\)[\s\S]{0,100}isAdminEmail\(request\.auth\.token\.email\)/.test(rules));
+check("rules gate admin access on both configured addresses",
+  /function isAdminEmail\(email\)[\s\S]{0,130}'okogbagideon28@gmail\.com'[\s\S]{0,80}'okogbaeladopere@gmail\.com'/.test(rules));
 check("services writable by admin only", /match \/boostServices[\s\S]{0,220}allow create, update, delete: if isAdmin\(\)/.test(rules));
 check("orders update admin-only", rules.includes("allow update: if isAdmin()"));
 check("clients cannot change status", rules.includes("statusUntouched()"));
@@ -248,15 +265,13 @@ check("admin page renders its own gate instead of bouncing to login",
 check("page guard understands the inline gate",
   read("assets/js/page-guard.js").includes('authGate === "inline"'));
 check("gate names the signed-in account", adminHtml.includes("data-admin-signed-in"));
-check("gate has a dedicated unverified-owner step", adminHtml.includes("data-admin-unverified"));
-check("gate can resend the verification email", adminHtml.includes("data-admin-send-verify"));
-check("gate can re-check access without signing in again", adminHtml.includes("data-admin-recheck"));
-check("gate offers Google sign-in", adminHtml.includes("data-admin-google"));
-check("unverified owner can switch directly to Google sign-in", adminHtml.includes("data-admin-google-switch"));
-check("gate offers email + password sign-in", /data-auth-form="login"/.test(adminHtml));
-check("gate explains who is allowed", adminHtml.includes("id=\"adminEmailHint\""));
-check("admin.js routes the unverified owner to its own state",
-  read("assets/js/admin.js").includes("owner-unverified"));
+check("admin gate does not block allowlisted users on email verification", !adminHtml.includes("data-admin-unverified"));
+check("admin console has a non-blocking verification reminder", adminHtml.includes("data-admin-verify"));
+check("admin gate offers Google sign-in", adminHtml.includes("data-admin-google"));
+check("admin gate offers email + password sign-in", /data-auth-form="login"/.test(adminHtml));
+check("admin gate lists both allowed addresses", adminHtml.includes("okogbagideon28@gmail.com and okogbaeladopere@gmail.com"));
+check("admin.js no longer routes owners to a verification block",
+  !read("assets/js/admin.js").includes("owner-unverified"));
 
 /* The owner must be able to reach a Google button while signed out. */
 check("login page offers Google sign-in", read("login.html").includes("data-google-signin"));
@@ -268,6 +283,15 @@ check("auth.js wires the Google buttons", read("assets/js/auth.js").includes("da
 check("email/password signup sends a verification email", read("assets/js/firebase.js").includes("await SG.sendVerificationEmail(cred.user)"));
 check("registration success explains the email-verification step",
   read("assets/js/auth.js").includes("We sent a verification link to "));
+check("ordinary signups are routed to the verification page before dashboard access",
+  read("assets/js/auth.js").includes("verificationUrl(requestedPage)"));
+const verifyHtml = read("verify-email.html");
+check("verification page is a public non-indexed route", verifyHtml.includes('name="robots" content="noindex, nofollow"') && !verifyHtml.includes("data-auth-required"));
+check("verification page can resend email and re-check status",
+  verifyHtml.includes("data-verification-resend") && verifyHtml.includes("data-verification-recheck"));
+check("verification page loads authentication behavior", verifyHtml.includes("assets/js/auth.js"));
+check("page guard blocks unverified users", read("assets/js/page-guard.js").includes("verify-email.html?next="));
+check("page guard redirects unverified allowlisted admins to admin", read("assets/js/page-guard.js").includes("return adminPage()"));
 
 const orderHtml = read("order.html");
 check("private pages have login route gate", orderHtml.includes("data-auth-required") && orderHtml.includes("assets/js/page-guard.js"));
@@ -398,6 +422,49 @@ async function gateCase(user, refreshed) {
 }
 
 const realSetTimeout = setTimeout;
+
+async function pageGuardCase({ user = null, pathname = "/dashboard.html", search = "", authGate = "", refreshed } = {}) {
+  const rootClasses = new Set(["sg-auth-pending"]);
+  const bodyAttrs = new Set(["data-auth-required"]);
+  const body = {
+    dataset: { authGate },
+    hasAttribute: (name) => bodyAttrs.has(name),
+    removeAttribute: (name) => bodyAttrs.delete(name),
+    classList: { add() {}, remove() {}, toggle() {}, contains: () => false }
+  };
+  const doc = {
+    body,
+    documentElement: { classList: { remove: (name) => rootClasses.delete(name) } },
+    dispatchEvent() {}
+  };
+  const location = {
+    protocol: "https:", hostname: "sonicgidsempire.web.app", pathname,
+    search, hash: "", href: "https://sonicgidsempire.web.app" + pathname + search,
+    redirect: null,
+    replace(url) { this.redirect = url; }
+  };
+  const sg = {
+    auth: {},
+    isVerifiedUser: (account) => !!account && (account.emailVerified === true ||
+      (account.providerData || []).some((provider) => provider.providerId === "google.com")),
+    isAdminUser: (account) => !!account && ["okogbagideon28@gmail.com", "okogbaeladopere@gmail.com"]
+      .includes(String(account.email || "").toLowerCase()),
+    onUser(callback) { callback(user); },
+    refreshUser: async () => refreshed === undefined ? user : refreshed
+  };
+  const sandbox = {
+    window: {}, document: doc, location, console, URLSearchParams, Promise,
+    CustomEvent: function () {}
+  };
+  sandbox.window = sandbox;
+  sandbox.window.SG = sg;
+  sandbox.window.SGReady = Promise.resolve(sg);
+  vm.createContext(sandbox);
+  vm.runInContext(fs.readFileSync(path.join(ROOT, "assets/js/page-guard.js"), "utf8"), sandbox,
+    { filename: "assets/js/page-guard.js" });
+  await new Promise((resolve) => realSetTimeout(resolve, 5));
+  return { location, rootClasses, bodyAttrs };
+}
 const owner = { email: "okogbagideon28@gmail.com", emailVerified: true, providerData: [{ providerId: "password" }] };
 const ownerUnverified = { email: "okogbagideon28@gmail.com", emailVerified: false, providerData: [{ providerId: "password" }] };
 const ownerGoogle = { email: "OkogbaGideon28@Gmail.com", emailVerified: false, providerData: [{ providerId: "google.com" }] };
@@ -406,6 +473,35 @@ const client = { email: "client@brand.com", emailVerified: true, providerData: [
 const hidden = (sb, sel) => sb.el(sel)._classes.has("hide");
 
 (async () => {
+  let guarded = await pageGuardCase({ user: { email: "client@brand.com", emailVerified: false, providerData: [{ providerId: "password" }] } });
+  check("unverified client is redirected away from the dashboard",
+    !!guarded.location.redirect && guarded.location.redirect.startsWith("verify-email.html?next="));
+  check("unverified dashboard redirect preserves its destination",
+    guarded.location.redirect && guarded.location.redirect.includes("%2Fdashboard.html"));
+
+  guarded = await pageGuardCase({ user: client });
+  check("verified client can pass the private-page guard",
+    !guarded.location.redirect && !guarded.rootClasses.has("sg-auth-pending"));
+
+  guarded = await pageGuardCase({ user: ownerUnverified });
+  check("unverified allowlisted admin is routed to the admin console, not dashboard",
+    guarded.location.redirect === "admin.html");
+
+  guarded = await pageGuardCase({ user: null, search: "?preview=1" });
+  check("signed-out layout preview is still available",
+    !guarded.location.redirect && !guarded.rootClasses.has("sg-auth-pending"));
+
+  guarded = await pageGuardCase({
+    user: { email: "client@brand.com", emailVerified: false, providerData: [{ providerId: "password" }] },
+    search: "?preview=1"
+  });
+  check("preview query cannot bypass verification for a signed-in client",
+    !!guarded.location.redirect && guarded.location.redirect.startsWith("verify-email.html?next="));
+
+  guarded = await pageGuardCase({ user: ownerUnverified, pathname: "/admin.html", authGate: "inline" });
+  check("inline admin gate remains reachable without email verification",
+    !guarded.location.redirect && !guarded.rootClasses.has("sg-auth-pending"));
+
   async function registrationTest(email, sendVerification) {
     const env = load("assets/js/firebase.js");
     const sg = env.window.SG;
@@ -440,6 +536,12 @@ const hidden = (sb, sel) => sb.el(sel)._classes.has("hide");
     registeredOwner.sends[0].settings.url === "https://sonicgidsempire.web.app/admin.html");
   check("new profile name is saved before signup completes",
     registeredOwner.user.displayName === "Test Owner");
+
+  const registeredSecondAdmin = await registrationTest("okogbaeladopere@gmail.com");
+  check("second admin signup still receives a verification email",
+    registeredSecondAdmin.sends.length === 1 && registeredSecondAdmin.sends[0].target === registeredSecondAdmin.user);
+  check("second admin verification link returns to the admin panel",
+    registeredSecondAdmin.sends[0].settings.url === "https://sonicgidsempire.web.app/admin.html");
 
   const registeredClient = await registrationTest("client@example.com");
   check("client signup verification returns to the dashboard",
@@ -477,17 +579,19 @@ const hidden = (sb, sel) => sb.el(sel)._classes.has("hide");
     sb.el("[data-admin-signed-in]").textContent === "client@brand.com",
     sb.el("[data-admin-signed-in]").textContent);
 
-  /* The bug this fixes: the cached profile still says emailVerified === false
-     after the owner clicks the verification link, and the console used to show
-     "This account does not have admin access". */
-  sb = await gateCase(ownerUnverified, owner);
-  check("an owner whose verification just landed gets straight into the console",
+  sb = await gateCase(ownerUnverified);
+  check("unverified primary owner opens the console without a verification gate",
     !hidden(sb, "[data-admin-panel]") && hidden(sb, "[data-admin-gate]"));
+  check("unverified primary owner gets a non-blocking verification reminder",
+    !hidden(sb, "[data-admin-verify]"));
 
-  sb = await gateCase(ownerUnverified, ownerUnverified);
-  check("an unverified owner gets the verification step, not 'no access'",
-    !hidden(sb, "[data-admin-unverified]") && hidden(sb, "[data-admin-noaccess]") &&
-    hidden(sb, "[data-admin-panel]"));
+  const secondOwnerUnverified = {
+    email: "okogbaeladopere@gmail.com", emailVerified: false,
+    providerData: [{ providerId: "password" }]
+  };
+  sb = await gateCase(secondOwnerUnverified);
+  check("unverified second owner also opens the console",
+    !hidden(sb, "[data-admin-panel]") && hidden(sb, "[data-admin-gate]"));
 
   sb = await gateCase(owner);
   check("a verified owner opens the console", !hidden(sb, "[data-admin-panel]"));
@@ -497,22 +601,6 @@ const hidden = (sb, sel) => sb.el(sel)._classes.has("hide");
   sb = await gateCase(ownerGoogle);
   check("a Google owner opens the console with no verification email",
     !hidden(sb, "[data-admin-panel]"));
-
-  sb = await gateCase(ownerUnverified);
-  let signedOutBeforeGoogle = false;
-  let googleSwitchUser = null;
-  sb.window.SG.signOut = async () => { signedOutBeforeGoogle = true; };
-  sb.window.SG.signInWithGoogle = async () => {
-    googleSwitchUser = ownerGoogle;
-    sb.window.SG.currentUser = ownerGoogle;
-    return ownerGoogle;
-  };
-  const googleSwitchHandler = sb.el("[data-admin-google-switch]").events.click[0];
-  await googleSwitchHandler({ target: sb.el("[data-admin-google-switch]") });
-  check("unverified owner can switch directly to Google sign-in",
-    signedOutBeforeGoogle && googleSwitchUser === ownerGoogle);
-  check("successful Google switch opens the admin console",
-    !hidden(sb, "[data-admin-panel]") && hidden(sb, "[data-admin-gate]"));
 
   console.log(`\n${pass} passed, ${fail} failed\n`);
   process.exit(fail === 0 ? 0 : 1);

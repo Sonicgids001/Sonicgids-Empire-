@@ -47,19 +47,33 @@
     } catch (_) { return defaultPage; }
   }
 
+  function isVerifiedUser(user) {
+    return !!(user && window.SG && window.SG.isVerifiedUser && window.SG.isVerifiedUser(user));
+  }
+
+  function isAdminUser(user) {
+    return !!(user && window.SG && window.SG.isAdminUser && window.SG.isAdminUser(user));
+  }
+
+  function verificationUrl(next, sendError) {
+    return "verify-email.html?next=" + encodeURIComponent(next || "dashboard.html") +
+      (sendError ? "&sendError=1" : "");
+  }
+
   /* --------------------------------------------------------------------------
      Nav state — swap "Client Login" for "Dashboard / Sign out"
      -------------------------------------------------------------------------- */
   function renderNavState(user) {
-    /* The console link shows for the owner address even before the email is
-       verified — the gate explains the one remaining step instead of hiding
-       the door and leaving the owner wondering where the admin area went. */
+    /* Keep the admin door visible for either allowlisted address, even when
+       that account has not verified its email. Client app links remain hidden
+       until a regular account is verified. */
     const admin = !!(user && window.SG && window.SG.isAdminEmail &&
       window.SG.isAdminEmail(user.email));
+    const appAccess = isVerifiedUser(user);
     $$("[data-auth-when]").forEach((el) => {
       const want = el.dataset.authWhen;
       let show;
-      if (want === "in") show = !!user;
+      if (want === "in") show = !!user && appAccess;
       else if (want === "out") show = !user;
       else if (want === "admin") show = admin;
       else show = true;
@@ -152,26 +166,33 @@
         if (mode === "signup") {
           const user = await window.SG.signUp(email, password, name);
           const isOwner = window.SG.isAdminEmail && window.SG.isAdminEmail(user.email);
-          const destination = safeNext(isOwner ? "admin.html" : "dashboard.html");
-          setAlert(
-            alertEl,
-            "Account created. We sent a verification link to " + (user.email || email) +
-              ". Check your inbox and spam folder. A verified owner email is required to access the admin panel.",
-            "success"
-          );
+          const requestedPage = safeNext(isOwner ? "admin.html" : "dashboard.html");
+          const destination = isOwner || isVerifiedUser(user)
+            ? requestedPage
+            : verificationUrl(requestedPage);
+          const message = isOwner
+            ? "Account created. We sent a verification link to " + (user.email || email) +
+              ". Admin access is available now; verifying the address is still recommended."
+            : "Account created. We sent a verification link to " + (user.email || email) +
+              ". Verify your address to access the dashboard. Check your inbox and spam folder.";
+          setAlert(alertEl, message, "success");
           setTimeout(() => (location.href = destination), 2200);
         } else if (mode === "login") {
           const user = await window.SG.signIn(email, password);
           const isOwner = window.SG.isAdminEmail && window.SG.isAdminEmail(user.email);
-          const dest = safeNext(isOwner ? "admin.html" : "dashboard.html");
+          const requestedPage = safeNext(isOwner ? "admin.html" : "dashboard.html");
+          const needsVerification = !isOwner && !isVerifiedUser(user);
+          const dest = needsVerification ? verificationUrl(requestedPage) : requestedPage;
           setAlert(
             alertEl,
-            isOwner && !new URLSearchParams(location.search).has("next")
-              ? "Welcome back, admin. Opening the admin console…"
-              : "Welcome back. Loading your dashboard…",
-            "success"
+            needsVerification
+              ? "You are signed in, but your email is not verified yet. Opening the verification step…"
+              : (isOwner && !new URLSearchParams(location.search).has("next")
+                ? "Welcome back, admin. Opening the admin console…"
+                : "Welcome back. Loading your dashboard…"),
+            needsVerification ? "info" : "success"
           );
-          setTimeout(() => (location.href = dest), 700);
+          setTimeout(() => (location.href = dest), needsVerification ? 900 : 700);
         } else {
           await window.SG.resetPassword(email);
           setAlert(
@@ -194,11 +215,14 @@
             : " Please check your connection and try again.";
           setAlert(
             alertEl,
-            msg + reason + (isOwner ? " Opening the admin console so you can resend it." : " Taking you to your dashboard."),
+            msg + reason + (isOwner
+              ? " Opening the admin console; your allowlisted account can use it now."
+              : " Taking you to the verification page so you can retry."),
             "error"
           );
+          const requestedPage = safeNext(isOwner ? "admin.html" : "dashboard.html");
           setTimeout(
-            () => (location.href = safeNext(isOwner ? "admin.html" : "dashboard.html")),
+            () => (location.href = isOwner ? requestedPage : verificationUrl(requestedPage, true)),
             2600
           );
         } else {
@@ -241,6 +265,136 @@
           );
           btn.disabled = false;
           btn.textContent = original;
+        }
+      });
+    });
+  }
+
+  /* --------------------------------------------------------------------------
+     Email-verification gate. Private client pages send unverified accounts
+     here, where they can resend the link and refresh the Firebase profile.
+     -------------------------------------------------------------------------- */
+  function initVerificationPage() {
+    const root = $("[data-email-verification]");
+    if (!root) return;
+
+    const alertEl = $("[data-verification-alert]", root);
+    const controls = $("[data-verification-controls]", root);
+    const signedOut = $("[data-verification-signed-out]", root);
+    const emailEl = $("[data-verification-email]", root);
+    const resend = $("[data-verification-resend]", root);
+    const recheck = $("[data-verification-recheck]", root);
+    const params = new URLSearchParams(location.search);
+    let currentUser = null;
+    let refreshRevision = 0;
+
+    function message(text, type) {
+      if (!alertEl) return;
+      alertEl.className = "alert show alert-" + (type || "info");
+      alertEl.textContent = text;
+    }
+
+    function destinationFor(user) {
+      if (isAdminUser(user)) return "admin.html";
+      const requested = params.get("next");
+      if (requested) {
+        try {
+          const target = new URL(requested, location.href);
+          if (target.origin === location.origin && target.pathname.startsWith("/") &&
+              !target.pathname.startsWith("//") && target.pathname !== "/verify-email.html") {
+            return target.pathname.slice(1) + target.search + target.hash;
+          }
+        } catch (_) { /* use the safe default below */ }
+      }
+      return "dashboard.html";
+    }
+
+    function renderUser(user) {
+      currentUser = user || null;
+      if (!user) {
+        if (controls) controls.classList.add("hide");
+        if (signedOut) signedOut.classList.remove("hide");
+        if (params.has("sendError")) {
+          message("Your account was created, but its verification email could not be sent. Sign in to resend it.", "error");
+        } else {
+          message("Sign in with the account you created to check or resend its verification link.", "info");
+        }
+        return;
+      }
+
+      if (controls) controls.classList.remove("hide");
+      if (signedOut) signedOut.classList.add("hide");
+      if (emailEl) emailEl.textContent = user.email || "your account email";
+      if (isAdminUser(user)) {
+        location.replace("admin.html");
+        return;
+      }
+      if (isVerifiedUser(user)) {
+        location.replace(destinationFor(user));
+      }
+    }
+
+    if (resend) {
+      resend.addEventListener("click", async () => {
+        if (!currentUser) return message("Sign in first to resend the verification email.", "error");
+        buttonBusy(resend, true, "Sending…");
+        try {
+          await window.SG.sendVerificationEmail(currentUser);
+          message("Verification email sent to " + (currentUser.email || "your address") + ". Check your inbox and spam folder.", "success");
+        } catch (err) {
+          const detail = window.SG.friendlyError ? window.SG.friendlyError(err) : "Please try again shortly.";
+          message("We could not send the verification email. " + detail, "error");
+        } finally {
+          buttonBusy(resend, false);
+        }
+      });
+    }
+
+    if (recheck) {
+      recheck.addEventListener("click", async () => {
+        if (!currentUser) return message("Sign in first to check your verification status.", "error");
+        const revision = ++refreshRevision;
+        buttonBusy(recheck, true, "Checking…");
+        try {
+          const fresh = await window.SG.refreshUser();
+          if (revision !== refreshRevision) return;
+          if (fresh) {
+            currentUser = fresh;
+            renderUser(fresh);
+          }
+          if (currentUser && !isAdminUser(currentUser) && !isVerifiedUser(currentUser)) {
+            message("Firebase still shows this email as unverified. Open the latest link in your inbox, then check access again.", "info");
+          }
+        } catch (_) {
+          message("We could not check the account right now. Check your connection and try again.", "error");
+        } finally {
+          buttonBusy(recheck, false);
+        }
+      });
+    }
+
+    document.addEventListener("sg:error", () => {
+      message("Firebase could not be reached. Check your connection and reload this page.", "error");
+    });
+
+    window.SGOnReady(() => {
+      window.SG.onUser(async (user) => {
+        const revision = ++refreshRevision;
+        renderUser(user);
+        if (user && !isAdminUser(user) && !isVerifiedUser(user) && window.SG.refreshUser) {
+          message("Checking your account's verification status…", "info");
+          try {
+            const fresh = await window.SG.refreshUser();
+            if (revision !== refreshRevision) return;
+            if (fresh) renderUser(fresh);
+          } catch (_) { /* the re-check button remains available */ }
+          if (currentUser && !isVerifiedUser(currentUser)) {
+            if (params.has("sendError")) {
+              message("Your account was created, but Firebase could not send the verification email. Use Resend verification email below.", "error");
+            } else {
+              message("Verification is still required for this account. Open the link we emailed you, or resend it below.", "info");
+            }
+          }
         }
       });
     });
@@ -323,6 +477,16 @@
           }
           if (gate) gate.classList.remove("hide");
           if (content) content.classList.add("hide");
+          return;
+        }
+
+        if (!isVerifiedUser(user)) {
+          if (isAdminUser(user)) {
+            location.replace("admin.html");
+          } else {
+            const next = location.pathname + location.search + location.hash;
+            location.replace(verificationUrl(next));
+          }
           return;
         }
 
@@ -481,6 +645,7 @@
     initSignOut();
     initAuthForms();
     initProviderButtons();
+    initVerificationPage();
     initDashboard();
     initDashboardTabs();
     initWallet();
