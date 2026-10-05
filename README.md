@@ -1,9 +1,10 @@
 # Sonicgids Empire — Social Growth Panel & Marketing Website
 
-Official website for **Sonicgids Empire**. The homepage and the sign-in / account-recovery pages
-are public; all other site pages require a Firebase login. Signed-in clients can place boost orders
-using a naira wallet, track orders, and submit manual top-up requests. There are **no subscriptions
-and no retainer plans**.
+Official website for **Sonicgids Empire**. The homepage and sign-in / account-recovery pages are
+public. Client account pages require a Firebase login and a verified email (Google sign-in counts as
+verified); the two configured admin accounts can access the admin console without email verification.
+Verified clients can place boost orders using a naira wallet, track orders, and submit manual top-up
+requests. There are **no subscriptions and no retainer plans**.
 
 Built as a **plain static site** — HTML, CSS and vanilla JavaScript, no build step and no
 dependencies to install. Deploy the folder anywhere; it runs as-is.
@@ -38,8 +39,9 @@ dependencies to install. Deploy the folder anywhere; it runs as-is.
 | **Boost panel** | `order.html` | Signed-in buy page: search plans → category → service → link → quantity → amount (₦) → **Continue** (orders start as **pending**) |
 | Sign in | `login.html` | Firebase email/password or Google sign-in |
 | Create account | `signup.html` | Firebase account creation; email/password sign-up sends an email verification link |
+| Verify email | `verify-email.html` | Resend the verification link and re-check access before opening client pages |
 | Reset password | `forgot-password.html` | Password reset email |
-| Dashboard | `dashboard.html` | Auth-gated app shell with a side menu: **New order** (boost panel), **My orders**, **Wallet** (balance, top-ups, activity) and **Activity** |
+| Dashboard | `dashboard.html` | Email-verified app shell with a side menu: **New order** (boost panel), **My orders**, **Wallet** (balance, top-ups, activity) and **Activity** |
 | **Admin console** | `admin.html` | **Owner-only.** Process orders, **set the rate per 1,000 / min / max**, priorities and the catalogue |
 | 404 | `404.html` | Custom not-found page |
 | Legal | `privacy.html`, `terms.html` | Privacy policy and terms of service |
@@ -62,44 +64,47 @@ Also included: `sitemap.xml`, `robots.txt`, `firebase.json`, `firestore.rules`, 
 
 The boost panel is one shared component — `assets/js/panel.js` renders into any
 `[data-boost-panel]` element, so `order.html` and the dashboard **Boost** tab stay identical.
-Add `?preview=1` to `order.html` or `dashboard.html` to render the UI without signing in (the page
-guard lets the shell through, no private data is loaded); checkout still requires a real account, a funded wallet, and a seeded Firestore service catalogue.
+Add `?preview=1` to `order.html` or `dashboard.html` to render the UI while signed out (the page
+guard lets the shell through, no private data is loaded). A signed-in but unverified client is still sent
+to `verify-email.html`; checkout requires a verified account, a funded wallet and a seeded Firestore service catalogue.
 
 ---
 
 ## Admin console (`admin.html`)
 
-Access is restricted to **okogbagideon28@gmail.com** and **beniwealth70@gmail.com** — the
-check runs both in the browser (`SG.ADMIN_EMAILS` in `assets/js/firebase.js`) **and** in
-Firestore security rules, so nobody can bypass it by editing the page source. To add another
-admin, extend `SG.ADMIN_EMAILS` *and* `isAdminEmail()` in `firestore.rules`, then
+Access is restricted to **okogbagideon28@gmail.com** and **okogbaeladopere@gmail.com** — the
+allowlist is checked in the browser (`SG.ADMIN_EMAILS` in `assets/js/firebase.js`) and again in
+Firestore security rules. To change it, update both allowlists and deploy with
 `firebase deploy --only firestore:rules`.
 
 ### Signing in as admin
 
-`admin.html` carries `data-auth-gate="inline"`, so it renders its **own** gate instead of
-bouncing signed-out visitors to `login.html`. That matters: the owner's quickest route
-(*Continue with Google*) lives inside the gate, and the old redirect made it unreachable.
+`admin.html` carries `data-auth-gate="inline"`, so signed-out visitors see the console's own
+sign-in panel instead of being bounced to `login.html`. Both allowed owner accounts can use the
+console with email/password or Google sign-in, whether or not the email-verification link has been
+opened. An unverified allowlisted admin sees a small reminder in the console, not a blocking gate.
 
 | State | What you see | What to do |
 | --- | --- | --- |
-| Signed out | **Continue with Google** + an owner email/password form | Sign in with the owner account |
-| Owner address, email not verified | A numbered 3-step card with **Send verification email** and **Re-check access** | Open the verification link sent at registration (or resend), then press **Re-check access** |
-| Somebody else's account | *"This account does not have admin access"* + **Switch to the owner account** | Sign in with the owner Google account |
-| Owner, verified | The console | — |
+| Signed out | **Continue with Google** + an owner email/password form | Sign in with either allowed owner account |
+| Allowed owner, email not verified | The admin console and a non-blocking verification reminder | Continue in the console; verify the address for better account recovery |
+| Somebody else's account | *"This account does not have admin access"* + **Switch to the owner account** | Sign out, then use one of the two allowed accounts |
+| Allowed owner, verified | The admin console | — |
 
 Notes:
 
-- **Email/password registration sends a verification email automatically.** For the owner
-  address, the link returns to `admin.html`; admin access remains locked until Firebase reports
-  the email as verified. The gate also has a resend option. This check is enforced again by the
-  Firestore rules.
-- **Google needs no separate verification email.** Google has already proven the mailbox, and the
-  Firestore rules accept `sign_in_provider == 'google.com'` in place of `email_verified`.
-- **A verification that just landed is picked up automatically.** Firebase serves the profile
-  cached at sign-in, so `emailVerified` can still read `false` after you click the link. Before
-  the gate refuses an owner, `SG.refreshUser()` reloads the profile **and** forces a fresh ID
-  token (the token is what the rules check). **Re-check access** does the same on demand.
+- **Every email/password signup sends a verification link.** Ordinary accounts must verify before
+  opening the dashboard, order page, rate card or other protected client pages. An unverified user is
+  sent to `verify-email.html`, where they can resend the link and refresh their verification status.
+- **The two listed admin addresses are deliberately exempt from that client gate.** Their admin
+  access is also allowed in Firestore rules, so reads and changes in the console work before
+  verification. Keep these addresses reserved to the actual owner accounts, use strong credentials
+  and enable multi-factor authentication in Firebase; do not leave an unclaimed admin address open
+  to public registration.
+- **Google needs no separate verification email.** Google has already proven the mailbox, so client
+  pages are available with Google sign-in.
+- Email verification status can be cached by Firebase. The verification page reloads the user and
+  forces a fresh ID token when checking whether access is ready.
 - Google sign-in is also offered on `login.html` and `signup.html` (`data-google-signin`).
 - Rules are only live once deployed: `firebase deploy --only firestore:rules`.
 
@@ -204,7 +209,7 @@ edited by hand. To add a brand new page, copy an existing page, change the `<tit
 **Running the checks:**
 
 ```bash
-node tools/test-workflow.js     # 155 assertions: auth/verification flow, admin identity,
+node tools/test-workflow.js     # 178 checks: auth/verification, admin identity, private-page gates,
                                 # status workflow, renderers, rules text and page wiring
 ```
 
@@ -269,15 +274,17 @@ The site uses the `sonicgidsempire` Firebase project. The web config lives at th
 Security summary enforced by `firestore.rules`:
 
 * Anyone may **create** a lead or subscriber; only the admin may read them.
-* A signed-in user may create an order only when the price, quantity and priority match the active
-  Firestore service catalogue. Order creation, wallet debit and immutable ledger entry are one
-  transaction. Clients can read only their own orders and cannot edit financial or status fields.
+* A verified client (or Google-authenticated client) may create an order only when the price,
+  quantity and priority match the active Firestore service catalogue. Unverified accounts cannot
+  read private client records or create orders. Order creation, wallet debit and immutable ledger
+  entry are one transaction. Clients can read only their own orders and cannot edit financial or status fields.
 * Anyone may **read** `boostServices` — the signed-in rate card uses the same catalogue — but only the
   admin can create services or change a rate, min or max.
 * Wallet balances and top-up approvals are admin-controlled. A client can only request a top-up;
   no payment is credited until the owner verifies receipt. Rejected orders trigger an atomic refund.
-* Static HTML is hidden behind a Firebase auth guard in the browser. Firebase Hosting serves static
-  files, so Firestore rules—not the page guard—are the security boundary for private data.
+* Protected client pages are hidden behind the browser auth guard until a regular account is verified.
+  Firebase Hosting serves static files, so Firestore rules—not the page guard—are the security boundary
+  for private data. The exact two-address admin allowlist is the explicit verification exception.
 
 ### The `window.SG` API
 
@@ -296,11 +303,12 @@ SG.sendVerificationEmail([user])            // send/resend to current or specifi
 SG.onUser(cb)
 
 // identity
-SG.ADMIN_EMAILS                            // ["okogbagideon28@gmail.com"] — the allowlist
-SG.ADMIN_EMAIL                             // "okogbagideon28@gmail.com" (first entry)
+SG.ADMIN_EMAILS                            // the two configured owner addresses
+SG.ADMIN_EMAIL                             // primary owner address (first entry)
 SG.isAdminEmail(email)                     // case/space tolerant
-SG.adminStatus(user)                       // signed-out | not-admin | owner-unverified | owner
-SG.isAdminUser(user)                       // true only for "owner"
+SG.isVerifiedUser(user)                    // verified email or trusted Google sign-in
+SG.adminStatus(user)                       // signed-out | not-admin | owner
+SG.isAdminUser(user)                       // true only for an allowlisted admin
 SG.refreshUser()                           // reload profile + force a fresh ID token
 
 // leads & subscribers
@@ -390,7 +398,8 @@ Update these in one place per page — the footer, contact page and service CTAs
 - [ ] **Boost services → Import starter catalogue**, then check a rate per 1,000, min/max and priority
 - [ ] Open `/pricing.html` logged out and confirm the live rate table shows the same ₦ rates
 - [ ] Open `/order.html?preview=1` and `/dashboard.html?preview=1` to review the layouts without signing in
-- [ ] Create a test account and confirm a Firebase email-verification link arrives; for the owner email, verify it and confirm `admin.html` opens after re-checking access
+- [ ] Create a regular test account, confirm the Firebase verification link arrives, and verify that the dashboard/order pages stay blocked until verification; use the re-check control on `verify-email.html`
+- [ ] Sign in with each allowlisted admin account (including while unverified) and confirm `admin.html` and its Firestore data load; confirm other unverified accounts cannot read client data
 - [ ] Pick a service, enter a quantity and confirm the **amount (₦)** = qty ÷ 1,000 × rate
 - [ ] Try a quantity below the minimum and above the maximum — both must be blocked with a message
 - [ ] Place the order and confirm it saves as **pending** with `ratePer1000` and `quantityNum` set

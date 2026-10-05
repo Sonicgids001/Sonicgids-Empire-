@@ -1,6 +1,6 @@
 /* ==========================================================================
    SONICGIOS EMPIRE — Admin console
-   Restricted to SG.ADMIN_EMAIL. Firestore rules enforce the same restriction
+   Restricted to SG.ADMIN_EMAILS. Firestore rules enforce the same restriction
    server-side, so this file only controls what the UI shows.
 
    What the admin can do here:
@@ -40,8 +40,6 @@
   const $gate = () => $("[data-admin-gate]");
   const $panel = () => $("[data-admin-panel]");
   const $noAccess = () => $("[data-admin-noaccess]");
-  const $unverified = () => $("[data-admin-unverified]");
-  const $verify = () => $("[data-admin-verify]");
   const $signinWrap = () => $("[data-admin-signin]");
   const $identity = () => $("[data-admin-identity]");
 
@@ -733,7 +731,6 @@
     if ($gate()) $gate().classList.remove("hide");
     if ($panel()) $panel().classList.add("hide");
     if ($signinWrap()) $signinWrap().classList.toggle("hide", mode !== "signed-out");
-    if ($unverified()) $unverified().classList.toggle("hide", mode !== "unverified");
     if ($noAccess()) $noAccess().classList.toggle("hide", mode !== "not-admin");
   }
 
@@ -766,37 +763,18 @@
     loadOrders();
   }
 
-  /* The cached Firebase profile can still report emailVerified === false (and
-     hand Firestore an ID token with email_verified: false) moments after the
-     owner clicks the verification link. A blocked owner gets one automatic
-     refresh before the gate is shown, so a verified address is never told it
-     has no access. The revision also prevents a slow refresh for a previous
-     session from replacing the state of a newer Google sign-in. */
-  let accessRevision = 0;
-  async function evaluateAccess(user) {
-    const revision = ++accessRevision;
+  function evaluateAccess(user) {
     if (!user) {
       renderIdentity(null);
       return showGate("signed-out");
     }
     renderIdentity(user);
-    const statusOf = (u) =>
-      window.SG.adminStatus ? window.SG.adminStatus(u)
-        : (window.SG.isAdminUser(u) ? "owner" : "not-admin");
+    const status = window.SG.adminStatus
+      ? window.SG.adminStatus(user)
+      : (window.SG.isAdminUser(user) ? "owner" : "not-admin");
 
-    let status = statusOf(user);
-    if (status === "owner-unverified" && window.SG.refreshUser) {
-      const fresh = await window.SG.refreshUser();
-      if (revision !== accessRevision) return;
-      if (fresh) {
-        user = fresh;
-        renderIdentity(user);
-        status = statusOf(user);
-      }
-    }
-    if (revision !== accessRevision) return;
     if (status === "owner") return showPanel(user);
-    return showGate(status === "owner-unverified" ? "unverified" : status);
+    return showGate("not-admin");
   }
 
   function initGate() {
@@ -824,31 +802,6 @@
       });
     }
 
-    const googleSwitchBtn = $("[data-admin-google-switch]");
-    if (googleSwitchBtn) {
-      googleSwitchBtn.addEventListener("click", async () => {
-        const alertEl = $("[data-admin-gate-alert]");
-        const original = googleSwitchBtn.textContent;
-        googleSwitchBtn.disabled = true;
-        googleSwitchBtn.textContent = "Opening Google…";
-        try {
-          await window.SG.signOut();
-          const user = await window.SG.signInWithGoogle();
-          await evaluateAccess(user);
-        } catch (err) {
-          if (alertEl) {
-            alertEl.className = "alert show alert-error";
-            alertEl.textContent =
-              (window.SG.friendlyError && window.SG.friendlyError(err)) ||
-              "Google sign-in failed. Check that the selected Google account is the owner account.";
-          }
-        } finally {
-          googleSwitchBtn.disabled = false;
-          googleSwitchBtn.textContent = original;
-        }
-      });
-    }
-
     const verifyBtn = $("[data-admin-send-verify]");
     if (verifyBtn) {
       verifyBtn.addEventListener("click", async () => {
@@ -857,7 +810,7 @@
         verifyBtn.textContent = "Sending…";
         try {
           await window.SG.sendVerificationEmail();
-          toast("Verification email sent — open the link, then press Re-check access.");
+          toast("Verification email sent. You can keep using the admin console while you verify the address.");
           verifyBtn.textContent = "Email sent — check your inbox";
           return;
         } catch (err) {
@@ -865,38 +818,6 @@
         }
         verifyBtn.disabled = false;
         verifyBtn.textContent = original;
-      });
-    }
-
-    /* Re-reads the account from Firebase: profile + a fresh ID token, which is
-       what the security rules check for email_verified. */
-    const recheck = $("[data-admin-recheck]");
-    if (recheck) {
-      recheck.addEventListener("click", async () => {
-        const original = recheck.textContent;
-        const alertEl = $("[data-admin-gate-alert]");
-        recheck.disabled = true;
-        recheck.textContent = "Checking…";
-        try {
-          const fresh = await window.SG.refreshUser();
-          const status = fresh && window.SG.adminStatus ? window.SG.adminStatus(fresh) : "signed-out";
-          if (status === "owner") {
-            if (alertEl) alertEl.className = "alert";
-            toast("Verified — opening the console.");
-            await evaluateAccess(fresh);
-            return;
-          }
-          if (alertEl) {
-            alertEl.className = "alert show alert-info";
-            alertEl.textContent =
-              status === "owner-unverified"
-                ? "Firebase still reports this address as unverified. Open the link in the email (spam folder included), then press Re-check access again."
-                : "That session has ended. Sign in again with the owner account.";
-          }
-        } finally {
-          recheck.disabled = false;
-          recheck.textContent = original;
-        }
       });
     }
 
@@ -925,9 +846,9 @@
     initGate();
 
     window.SGOnReady(() => {
-      /* Keep the address shown on the gate in step with SG.ADMIN_EMAILS. */
+      /* Keep the address list shown on the gate in step with the allowlist. */
       const hint = document.getElementById("adminEmailHint");
-      if (hint && window.SG.ADMIN_EMAIL) hint.textContent = window.SG.ADMIN_EMAIL;
+      if (hint && window.SG.ADMIN_EMAILS) hint.textContent = window.SG.ADMIN_EMAILS.join(" and ");
       window.SG.onUser((user) => { evaluateAccess(user); });
     });
   }

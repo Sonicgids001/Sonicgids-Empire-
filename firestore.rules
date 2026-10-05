@@ -10,9 +10,10 @@ rules_version = '2';
 //   boostServices  — the boosting catalogue managed from the admin console
 //
 // Access model
-//   • Clients      : create their own orders, read only their own records.
-//   • Admin        : the single owner address below. Only the admin can read or
-//                    change order status, priorities and the boosting catalogue.
+//   • Clients      : must have a verified email (or sign in with Google) before
+//                    reading or writing their own private account records.
+//   • Admin        : the two trusted owner addresses below may use the admin
+//                    console without the client email-verification gate.
 //   • Everything else is denied.
 // ============================================================================
 
@@ -21,27 +22,27 @@ service cloud.firestore {
 
     // ---- Admin identity -----------------------------------------------------
     // Keep this list in step with SG.ADMIN_EMAILS in assets/js/firebase.js.
-    // To add a second admin, extend isAdminEmail() below AND the array in
-    // firebase.js, then run: firebase deploy --only firestore:rules
+    // Adding or removing an admin requires changing both allowlists, then
+    // deploying: firebase deploy --only firestore:rules
     //
-    // An address counts as the owner once the mailbox is proven — either by a
-    // verified email (email/password accounts) or by a Google sign-in. Google
-    // has already confirmed the address; insisting on the verification link for
-    // a Google account is what used to lock the owner out of their own console.
+    // These two owner addresses are deliberately exempt from the client
+    // verification gate so they can reach the admin console immediately.
     function isAdminEmail(email) {
       return email == 'okogbagideon28@gmail.com'
-          || email == 'beniwealth70@gmail.com';
+          || email == 'okogbaeladopere@gmail.com';
     }
 
     function isAdmin() {
       return request.auth != null
-        && isAdminEmail(request.auth.token.email)
-        && (request.auth.token.email_verified == true
-            || request.auth.token.firebase.sign_in_provider == 'google.com');
+        && isAdminEmail(request.auth.token.email);
     }
 
-    function signedIn() {
-      return request.auth != null;
+    // Email/password clients must verify first. Google has already confirmed
+    // the mailbox, so its Firebase sign-in provider is accepted as proof.
+    function verifiedUser() {
+      return request.auth != null
+        && (request.auth.token.email_verified == true
+            || request.auth.token.firebase.sign_in_provider == 'google.com');
     }
 
     function isValidEmail(value) {
@@ -62,7 +63,7 @@ service cloud.firestore {
                     && request.resource.data.message.size() >= 20
                     && request.resource.data.message.size() <= 5000;
 
-      allow read: if isAdmin() || (signedIn() && resource.data.uid == request.auth.uid);
+      allow read: if isAdmin() || (verifiedUser() && resource.data.uid == request.auth.uid);
 
       allow update, delete: if isAdmin();
     }
@@ -108,10 +109,10 @@ service cloud.firestore {
           && order.amount <= expected + 0.005;
       }
 
-      // A signed-in client may open an order. Status and audit fields are
+      // A verified client may open an order. Status and audit fields are
       // pinned so they cannot be spoofed from the browser.
       function validNewOrder() {
-        return signedIn()
+        return verifiedUser()
           && validCatalogOrder(request.resource.data)
           && request.resource.data.uid == request.auth.uid
           && request.resource.data.status == 'pending'
@@ -143,7 +144,7 @@ service cloud.firestore {
                     || (isAdmin() && request.resource.data.status in
                         ['pending', 'approved', 'rejected', 'ongoing', 'completed']);
 
-      allow read: if isAdmin() || (signedIn() && resource.data.uid == request.auth.uid);
+      allow read: if isAdmin() || (verifiedUser() && resource.data.uid == request.auth.uid);
 
       // The admin drives the workflow: pending → approved/rejected →
       // ongoing → completed. Rejected orders can be reopened.
@@ -156,7 +157,7 @@ service cloud.firestore {
                                  'packageLabel', 'targetLink', 'notes']);
 
       // Clients may only withdraw their own feedback fields (never status).
-      allow update: if signedIn()
+      allow update: if verifiedUser()
                     && resource.data.uid == request.auth.uid
                     && statusUntouched()
                     && request.resource.data.diff(resource.data).affectedKeys()
@@ -179,15 +180,15 @@ service cloud.firestore {
     }
 
     match /wallets/{uid} {
-      allow read: if isAdmin() || (signedIn() && request.auth.uid == uid);
+      allow read: if isAdmin() || (verifiedUser() && request.auth.uid == uid);
       // A client may only initialise their wallet at zero.
-      allow create: if isAdmin() || (signedIn() && request.auth.uid == uid
+      allow create: if isAdmin() || (verifiedUser() && request.auth.uid == uid
                     && request.resource.data.balance == 0
                     && request.resource.data.currency == 'NGN'
                     && request.resource.data.keys().hasOnly(['balance', 'currency', 'updatedAt']));
       // Client-side changes can only be a real debit paired atomically with
       // the corresponding order and ledger entry. Admin credits are reviewed.
-      allow update: if isAdmin() || (signedIn() && request.auth.uid == uid
+      allow update: if isAdmin() || (verifiedUser() && request.auth.uid == uid
                     && request.resource.data.keys().hasOnly(['balance', 'currency', 'updatedAt', 'lastTransactionId'])
                     && request.resource.data.balance >= 0
                     && request.resource.data.balance < resource.data.balance
@@ -200,8 +201,8 @@ service cloud.firestore {
     }
 
     match /walletTransactions/{transactionId} {
-      allow read: if isAdmin() || (signedIn() && resource.data.uid == request.auth.uid);
-      allow create: if isAdmin() || (signedIn()
+      allow read: if isAdmin() || (verifiedUser() && resource.data.uid == request.auth.uid);
+      allow create: if isAdmin() || (verifiedUser()
                     && request.resource.data.uid == request.auth.uid
                     && request.resource.data.type == 'debit'
                     && request.resource.data.source == 'order'
@@ -218,7 +219,7 @@ service cloud.firestore {
     // Top-up requests are intentionally not deposits: an owner verifies
     // receipt of funds and credits the wallet in a separate admin-only action.
     match /walletTopups/{topupId} {
-      allow create: if signedIn()
+      allow create: if verifiedUser()
                     && request.resource.data.uid == request.auth.uid
                     && isValidEmail(request.resource.data.email)
                     && request.resource.data.amount is number
@@ -226,7 +227,7 @@ service cloud.firestore {
                     && request.resource.data.amount <= 50000000
                     && request.resource.data.status == 'pending'
                     && isString(request.resource.data.reference, 100);
-      allow read: if isAdmin() || (signedIn() && resource.data.uid == request.auth.uid);
+      allow read: if isAdmin() || (verifiedUser() && resource.data.uid == request.auth.uid);
       allow update: if isAdmin()
                     && resource.data.status == 'pending'
                     && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'reviewedAt', 'reviewedBy'])

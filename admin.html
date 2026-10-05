@@ -98,7 +98,7 @@
         <div class="lock">🔐</div>
         <span class="eyebrow">Restricted area</span>
         <h1 style="font-size:1.7rem;margin:12px 0 10px">Admin console</h1>
-        <p class="small muted">Process client orders, approve wallet top-ups and set boost rates. Only the owner account can open this page.</p>
+        <p class="small muted">Process client orders, approve wallet top-ups and set boost rates. Only the two configured owner accounts can open this page.</p>
 
         <div class="alert mt-3" data-admin-gate-alert role="alert"></div>
 
@@ -119,7 +119,7 @@
             </button>
           </div>
 
-          <div class="oauth-divider">or sign in with the owner email</div>
+          <div class="oauth-divider">or sign in with an allowed admin email</div>
 
           <form data-auth-form="login" novalidate>
             <div class="alert" data-auth-alert role="alert"></div>
@@ -137,30 +137,10 @@
           <p class="form-note">Lost the password? <a href="forgot-password.html">Reset it</a>. Google is the quickest route — it needs no verification email.</p>
         </div>
 
-        <!-- 2 · Owner address, email not verified yet -->
-        <div data-admin-unverified class="hide">
-          <div class="alert show alert-info mt-3">
-            <strong>One step left:</strong> this address still has to be confirmed. Firestore blocks admin
-            reads until the mailbox is proven, so the console stays locked for now. Email/password registration
-            sends a verification link automatically.
-          </div>
-          <ol class="gate-steps">
-            <li>Open the verification link we emailed to this address. If you cannot find it, press <strong>Send verification email</strong> below.</li>
-            <li>Check your inbox and spam/junk folder for the Firebase verification email.</li>
-            <li>Come back and press <strong>Re-check access</strong> — no need to sign in again.</li>
-          </ol>
-          <div class="btn-row mt-3" style="display:grid;gap:10px">
-            <button class="btn btn-gold btn-block" type="button" data-admin-send-verify>Send verification email</button>
-            <button class="btn btn-white btn-block" type="button" data-admin-recheck>Re-check access</button>
-            <button class="btn btn-ghost btn-block" type="button" data-admin-google-switch>Switch account and continue with Google</button>
-          </div>
-          <p class="form-note">Use Google with the allowed owner email. Email/password accounts must open the verification link before the console can load.</p>
-        </div>
-
-        <!-- 3 · Signed in as somebody else -->
+        <!-- Signed in as somebody else -->
         <div data-admin-noaccess class="hide">
           <div class="alert show alert-error mt-3">
-            This account does not have admin access. The console is limited to the owner address shown below.
+            This account does not have admin access. Sign in with one of the allowed owner addresses shown below.
           </div>
           <div class="btn-row mt-3" style="display:grid;gap:10px">
             <button class="btn btn-gold btn-block" type="button" data-sign-out data-redirect="admin.html">Switch to the owner account</button>
@@ -169,7 +149,7 @@
         </div>
 
         <div class="divider"></div>
-        <p class="small muted">Allowed account: <strong id="adminEmailHint">okogbagideon28@gmail.com</strong>. The same rule is enforced by Firestore security rules, so it cannot be bypassed from the browser.</p>
+        <p class="small muted">Allowed admin accounts: <strong id="adminEmailHint">okogbagideon28@gmail.com and okogbaeladopere@gmail.com</strong>. These two configured owner accounts can use the console without email verification. The allowlist is enforced again by Firestore security rules.</p>
       </div>
     </div>
 
@@ -191,7 +171,7 @@
       </div>
 
       <div class="alert alert-info hide" data-admin-verify role="status">
-        Your email is not verified yet. Some actions need a verified address.
+        This allowlisted admin address is not verified yet. You can still use the console; verification is recommended for mailbox security and account recovery.
         <button class="btn btn-ghost btn-sm" type="button" data-admin-send-verify style="margin-left:10px">Send verification email</button>
       </div>
 

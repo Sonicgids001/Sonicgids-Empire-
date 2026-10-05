@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Verify your email | Sonicgids Empire</title>
+<meta name="description" content="Verify your email address to securely access your Sonicgids Empire account.">
+<meta name="robots" content="noindex, nofollow">
+<meta name="theme-color" content="#0b1020">
+<link rel="icon" type="image/webp" href="https://res.cloudinary.com/wfcrf1ps/image/upload/f_auto,q_auto/WhatsApp_Image_2026-08-15_at_3.27.38_PM">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/css/style.css">
+<link rel="stylesheet" href="assets/css/pages.css">
+</head>
+<body data-page="verify-email">
+<header class="site-header">
+  <div class="container">
+    <nav class="nav" aria-label="Main navigation">
+      <a class="brand" href="index.html">
+        <span class="brand-mark"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M3 8.5l3.4 3L9.6 5l2.4 4.2L14.4 5l3.2 6.5 3.4-3-1.5 10.2H4.5L3 8.5Z" fill="currentColor"/></svg></span>
+        <span class="brand-text"><span class="brand-name">Sonicgids</span><span class="brand-tag">Empire</span></span>
+      </a>
+      <div class="nav-actions"><a class="btn btn-ghost btn-sm" href="login.html">Sign in</a></div>
+    </nav>
+  </div>
+</header>
+
+<main id="main">
+  <section class="section">
+    <div class="container" style="display:grid;place-items:center;min-height:62vh">
+      <div class="auth-card" data-email-verification style="max-width:500px">
+        <span class="eyebrow">One quick step</span>
+        <h1 style="font-size:1.65rem;margin:12px 0 8px">Verify your email address</h1>
+        <p class="sub">Please confirm your email before opening your dashboard or placing an order.</p>
+
+        <div class="alert" data-verification-alert role="status" aria-live="polite"></div>
+
+        <div data-verification-controls class="hide">
+          <p class="small">We sent a verification link to <strong data-verification-email></strong>. Open the message, then return here and check again. If it is not in your inbox, check spam or junk.</p>
+          <div class="btn-row mt-3" style="display:grid;gap:10px">
+            <button class="btn btn-gold btn-block" type="button" data-verification-recheck>I've verified — check access</button>
+            <button class="btn btn-white btn-block" type="button" data-verification-resend>Resend verification email</button>
+            <button class="btn btn-ghost btn-block" type="button" data-sign-out data-redirect="login.html">Sign out</button>
+          </div>
+        </div>
+
+        <div data-verification-signed-out class="hide">
+          <p class="small">Sign in with the account you just created to resend the verification link or check your verification status.</p>
+          <div class="btn-row mt-3" style="display:grid;gap:10px">
+            <a class="btn btn-gold btn-block" href="login.html">Sign in</a>
+            <a class="btn btn-ghost btn-block" href="signup.html">Create an account</a>
+          </div>
+        </div>
+
+        <p class="form-note mt-3">The two configured admin accounts can open the admin console without this step.</p>
+      </div>
+    </div>
+  </section>
+</main>
+
+<script src="assets/js/firebase.js"></script>
+<script src="assets/js/site.js"></script>
+<script src="assets/js/auth.js"></script>
+</body>
+</html>
