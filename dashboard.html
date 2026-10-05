@@ -236,12 +236,24 @@
               <div class="wallet-columns">
                 <form class="wallet-topup" data-wallet-topup novalidate>
                   <h3>Add funds</h3>
-                  <p class="small muted"><a href="https://wa.me/2347038322626?text=Please%20send%20me%20wallet%20top-up%20payment%20instructions" target="_blank" rel="noopener">Message us for transfer details</a>, then submit the amount and reference. Your balance updates after we verify the payment.</p>
+                  <p class="small muted">Make a bank transfer to the company account below, then submit the amount and a screenshot of your receipt. Your top-up stays pending and your wallet is credited only after an admin approves it.</p>
+                  <div class="wallet-bank-details mt-2" aria-label="Company bank transfer details">
+                    <span class="eyebrow">Company account · bank transfer</span>
+                    <div class="wallet-bank-line"><span>Bank</span><strong>Moniepoint</strong></div>
+                    <div class="wallet-bank-line"><span>Account number</span><strong class="wallet-account-number">8077055122</strong></div>
+                    <div class="wallet-bank-line"><span>Account name</span><strong>Okogba Gideon Eladopere Chizaram</strong></div>
+                  </div>
                   <div class="field-row mt-2">
                     <div class="field"><label for="wallet-amount">Amount (₦)</label><input id="wallet-amount" name="amount" type="number" min="100" max="50000000" step="0.01" required placeholder="e.g. 5000"></div>
-                    <div class="field"><label for="wallet-reference">Transfer reference</label><input id="wallet-reference" name="reference" type="text" maxlength="100" placeholder="Bank / payment reference"></div>
+                    <div class="field"><label for="wallet-reference">Transfer reference <span class="small muted">(optional)</span></label><input id="wallet-reference" name="reference" type="text" maxlength="100" placeholder="Bank / payment reference"></div>
+                  </div>
+                  <div class="field mt-2">
+                    <label for="wallet-proof">Payment receipt image <span class="req">*</span></label>
+                    <input id="wallet-proof" name="proof" type="file" accept="image/jpeg,image/png,image/webp" required>
+                    <span class="small muted">JPG, PNG or WebP. The image is compressed, encoded in Base64 and sent privately for admin review.</span>
                   </div>
                   <button class="btn btn-gold" type="submit">Submit top-up request</button>
+                  <p class="small muted mt-1">Funds are not added to your available balance until the payment proof is approved.</p>
                   <div class="alert" data-wallet-note role="status"></div>
                 </form>
                 <div class="wallet-activity">

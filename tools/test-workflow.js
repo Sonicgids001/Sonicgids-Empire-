@@ -76,14 +76,17 @@ const SG = fb.window.SG;
 
 check("admin email constant", SG.ADMIN_EMAIL === "okogbagideon28@gmail.com", SG.ADMIN_EMAIL);
 check("admin allowlist starts with the owner", SG.ADMIN_EMAILS[0] === "okogbagideon28@gmail.com");
+check("admin allowlist includes the new admin address", SG.ADMIN_EMAILS.includes("beniwealth70@gmail.com"));
 check("isAdminEmail matches primary owner", SG.isAdminEmail("okogbagideon28@gmail.com") === true);
 check("isAdminEmail matches second owner", SG.isAdminEmail("okogbaeladopere@gmail.com") === true);
+check("isAdminEmail matches the new admin", SG.isAdminEmail("beniwealth70@gmail.com") === true);
 check("isAdminEmail is case-insensitive", SG.isAdminEmail("  OkogbaGideon28@Gmail.com ") === true);
 check("isAdminEmail rejects others", SG.isAdminEmail("someone@else.com") === false);
 check("isAdminEmail rejects blanks", SG.isAdminEmail("") === false && SG.isAdminEmail(null) === false);
-check("both allowlisted admins are exempt from email verification",
+check("all three allowlisted admins are exempt from email verification",
   SG.isAdminUser({ email: SG.ADMIN_EMAIL, emailVerified: false, providerData: [] }) === true &&
-  SG.isAdminUser({ email: "okogbaeladopere@gmail.com", emailVerified: false, providerData: [] }) === true);
+  SG.isAdminUser({ email: "okogbaeladopere@gmail.com", emailVerified: false, providerData: [] }) === true &&
+  SG.isAdminUser({ email: "beniwealth70@gmail.com", emailVerified: false, providerData: [] }) === true);
 check("isAdminUser allows verified owner",
   SG.isAdminUser({ email: SG.ADMIN_EMAIL, emailVerified: true, providerData: [] }) === true);
 check("isAdminUser allows Google owner",
@@ -100,6 +103,8 @@ check("unverified allowlisted owner reports owner for immediate console access",
   SG.adminStatus({ email: SG.ADMIN_EMAIL, emailVerified: false, providerData: [] }) === "owner");
 check("second unverified allowlisted owner reports owner",
   SG.adminStatus({ email: "okogbaeladopere@gmail.com", emailVerified: false, providerData: [] }) === "owner");
+check("new unverified allowlisted admin reports owner",
+  SG.adminStatus({ email: "beniwealth70@gmail.com", emailVerified: false, providerData: [] }) === "owner");
 check("verified owner reports owner",
   SG.adminStatus({ email: SG.ADMIN_EMAIL, emailVerified: true, providerData: [] }) === "owner");
 check("Google owner reports owner without a verification link",
@@ -226,16 +231,15 @@ check("escaping prevents injection", !cardHtml.includes("<img src=x"), cardHtml.
 /* ---------------- rules text sanity ---------------- */
 console.log("\nfirestore.rules — admin enforcement");
 const rules = fs.readFileSync(path.join(ROOT, "firestore.rules"), "utf8");
-check("rules pin both admin addresses", rules.includes("okogbagideon28@gmail.com") && rules.includes("okogbaeladopere@gmail.com"));
-check("rules no longer include the replaced admin address", !rules.includes("beniwealth70@gmail.com"));
+check("rules pin all three admin addresses", rules.includes("okogbagideon28@gmail.com") && rules.includes("okogbaeladopere@gmail.com") && rules.includes("beniwealth70@gmail.com"));
 check("client rules require verified email or Google sign-in",
   /function verifiedUser\(\)[\s\S]{0,180}email_verified == true/.test(rules));
 check("rules accept a Google sign-in as proof of a client email",
   /sign_in_provider == 'google\.com'/.test(rules));
 check("admin rules bypass client email verification for the allowlist",
   /function isAdmin\(\)[\s\S]{0,100}isAdminEmail\(request\.auth\.token\.email\)/.test(rules));
-check("rules gate admin access on both configured addresses",
-  /function isAdminEmail\(email\)[\s\S]{0,130}'okogbagideon28@gmail\.com'[\s\S]{0,80}'okogbaeladopere@gmail\.com'/.test(rules));
+check("rules gate admin access on all three configured addresses",
+  /function isAdminEmail\(email\)[\s\S]{0,160}'okogbagideon28@gmail\.com'[\s\S]{0,80}'okogbaeladopere@gmail\.com'[\s\S]{0,80}'beniwealth70@gmail\.com'/.test(rules));
 check("services writable by admin only", /match \/boostServices[\s\S]{0,220}allow create, update, delete: if isAdmin\(\)/.test(rules));
 check("orders update admin-only", rules.includes("allow update: if isAdmin()"));
 check("clients cannot change status", rules.includes("statusUntouched()"));
@@ -243,7 +247,10 @@ check("order creation requires matching server catalogue", rules.includes("valid
 check("wallet order debits are atomic", rules.includes("validWalletDebit(orderId, request.resource.data)"));
 check("wallet ledger is immutable", rules.includes("allow update, delete: if false;"));
 check("top-up requests cannot credit themselves", rules.includes("match /walletTopups/{topupId}"));
-check("client order edits cannot change financial fields", rules.includes("hasOnly(['targetLink', 'notes', 'contactPhone', 'brand'])"));
+check("top-up creation requires a paired receipt upload", rules.includes("topupHasProof(topupId, request.auth.uid)") && rules.includes("proofHasTopup(topupId, request.auth.uid)"));
+check("receipt image is restricted to compressed JPEG Base64", rules.includes("value.matches('^data:image/jpeg;base64,") && rules.includes("value.size() <= 700000"));
+check("receipt images can only be read by admins", /match \/walletTopupProofs[\s\S]{0,500}allow read: if isAdmin\(\)/.test(rules));
+check("client order edits cannot change financial fields",  rules.includes("hasOnly(['targetLink', 'notes', 'contactPhone', 'brand'])"));
 check("leads create open, read restricted", /match \/leads[\s\S]{0,900}allow read: if isAdmin\(\)/.test(rules));
 
 /* ---------------- page wiring ---------------- */
@@ -255,6 +262,8 @@ check("admin page loads orders.js", adminHtml.includes("assets/js/orders.js"));
 check("admin page is noindex", adminHtml.includes("noindex, nofollow"));
 check("admin page has order tabs", adminHtml.includes('data-admin-tab="orders"'));
 check("admin page can review wallet top-ups", adminHtml.includes("data-admin-wallet-topups"));
+check("admin page exposes payment receipt viewer", read("assets/js/admin.js").includes("data-wallet-proof-toggle") && read("assets/js/firebase.js").includes("adminGetWalletTopupProof"));
+check("admin page displays the company receiving account", adminHtml.includes("8077055122") && adminHtml.includes("Moniepoint") && adminHtml.includes("Okogba Gideon Eladopere Chizaram"));
 check("admin page has service tab", adminHtml.includes('data-admin-tab="services"'));
 check("admin page hides gate initially by default", adminHtml.includes("data-admin-gate"));
 check("admin page has 5 statuses in CSS link", adminHtml.includes("assets/css/admin.css"));
@@ -269,7 +278,7 @@ check("admin gate does not block allowlisted users on email verification", !admi
 check("admin console has a non-blocking verification reminder", adminHtml.includes("data-admin-verify"));
 check("admin gate offers Google sign-in", adminHtml.includes("data-admin-google"));
 check("admin gate offers email + password sign-in", /data-auth-form="login"/.test(adminHtml));
-check("admin gate lists both allowed addresses", adminHtml.includes("okogbagideon28@gmail.com and okogbaeladopere@gmail.com"));
+check("admin gate lists all three allowed addresses", adminHtml.includes("okogbagideon28@gmail.com, okogbaeladopere@gmail.com and beniwealth70@gmail.com"));
 check("admin.js no longer routes owners to a verification block",
   !read("assets/js/admin.js").includes("owner-unverified"));
 
@@ -310,6 +319,9 @@ check("dashboard mounts the boost panel", dashHtml.includes("data-boost-panel"))
 check("dashboard has orders panel", dashHtml.includes("data-dashboard-orders"));
 check("dashboard has order stats", dashHtml.includes('data-order-stat="pending"'));
 check("dashboard includes wallet and top-up form", dashHtml.includes("data-wallet-balance") && dashHtml.includes("data-wallet-topup"));
+check("dashboard shows company Moniepoint transfer details", dashHtml.includes("8077055122") && dashHtml.includes("Moniepoint") && dashHtml.includes("Okogba Gideon Eladopere Chizaram"));
+check("dashboard requires an image receipt for manual top-ups", dashHtml.includes('name="proof"') && read("assets/js/auth.js").includes("encodeWalletProof(proofFile)"));
+check("dashboard keeps top-up pending until admin approval", read("assets/js/firebase.js").includes('status: "pending"') && read("assets/js/firebase.js").includes("adminReviewWalletTopup"));
 check("dashboard shows admin link for admin", dashHtml.includes('data-auth-when="admin"'));
 
 const indexHtml = read("index.html");
@@ -447,7 +459,7 @@ async function pageGuardCase({ user = null, pathname = "/dashboard.html", search
     auth: {},
     isVerifiedUser: (account) => !!account && (account.emailVerified === true ||
       (account.providerData || []).some((provider) => provider.providerId === "google.com")),
-    isAdminUser: (account) => !!account && ["okogbagideon28@gmail.com", "okogbaeladopere@gmail.com"]
+    isAdminUser: (account) => !!account && ["okogbagideon28@gmail.com", "okogbaeladopere@gmail.com", "beniwealth70@gmail.com"]
       .includes(String(account.email || "").toLowerCase()),
     onUser(callback) { callback(user); },
     refreshUser: async () => refreshed === undefined ? user : refreshed
@@ -468,6 +480,7 @@ async function pageGuardCase({ user = null, pathname = "/dashboard.html", search
 const owner = { email: "okogbagideon28@gmail.com", emailVerified: true, providerData: [{ providerId: "password" }] };
 const ownerUnverified = { email: "okogbagideon28@gmail.com", emailVerified: false, providerData: [{ providerId: "password" }] };
 const ownerGoogle = { email: "OkogbaGideon28@Gmail.com", emailVerified: false, providerData: [{ providerId: "google.com" }] };
+const newAdminUnverified = { email: "beniwealth70@gmail.com", emailVerified: false, providerData: [{ providerId: "password" }] };
 const client = { email: "client@brand.com", emailVerified: true, providerData: [{ providerId: "password" }] };
 
 const hidden = (sb, sel) => sb.el(sel)._classes.has("hide");
@@ -485,6 +498,10 @@ const hidden = (sb, sel) => sb.el(sel)._classes.has("hide");
 
   guarded = await pageGuardCase({ user: ownerUnverified });
   check("unverified allowlisted admin is routed to the admin console, not dashboard",
+    guarded.location.redirect === "admin.html");
+
+  guarded = await pageGuardCase({ user: newAdminUnverified });
+  check("new allowlisted admin is routed to the admin console before verification",
     guarded.location.redirect === "admin.html");
 
   guarded = await pageGuardCase({ user: null, search: "?preview=1" });
@@ -543,6 +560,11 @@ const hidden = (sb, sel) => sb.el(sel)._classes.has("hide");
   check("second admin verification link returns to the admin panel",
     registeredSecondAdmin.sends[0].settings.url === "https://sonicgidsempire.web.app/admin.html");
 
+  const registeredNewAdmin = await registrationTest("beniwealth70@gmail.com");
+  check("new admin signup sends a verification email and routes it to the admin panel",
+    registeredNewAdmin.sends.length === 1 &&
+      registeredNewAdmin.sends[0].settings.url === "https://sonicgidsempire.web.app/admin.html");
+
   const registeredClient = await registrationTest("client@example.com");
   check("client signup verification returns to the dashboard",
     registeredClient.sends[0].settings.url === "https://sonicgidsempire.web.app/dashboard.html");
@@ -591,6 +613,10 @@ const hidden = (sb, sel) => sb.el(sel)._classes.has("hide");
   };
   sb = await gateCase(secondOwnerUnverified);
   check("unverified second owner also opens the console",
+    !hidden(sb, "[data-admin-panel]") && hidden(sb, "[data-admin-gate]"));
+
+  sb = await gateCase(newAdminUnverified);
+  check("unverified new admin opens the console",
     !hidden(sb, "[data-admin-panel]") && hidden(sb, "[data-admin-gate]"));
 
   sb = await gateCase(owner);

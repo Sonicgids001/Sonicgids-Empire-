@@ -5,8 +5,8 @@
 
    What the admin can do here:
      • process orders through pending → approved / rejected → ongoing → completed
-     • set the processing priority of each boosting service
-     • manage the boosting service catalogue (add, edit, pause, delete)
+     • review Base64 payment receipts and approve or reject wallet top-ups
+     • set service priorities and manage the boosting catalogue
      • read contact-form leads and newsletter subscribers
    ========================================================================== */
 
@@ -377,6 +377,11 @@
         <article class="lead-row wallet-review" data-wallet-request="${esc(item.id)}">
           <div class="lead-top"><strong>${esc(item.email || item.uid)}</strong><span>${money(item.amount)}</span><span class="task-when">${dateStr(item.createdAt)}</span></div>
           <p class="small muted">Transfer reference: <strong>${esc(item.reference || "Not provided")}</strong></p>
+          <div class="wallet-proof-tools">
+            <button class="btn btn-white btn-sm" type="button" data-wallet-proof-toggle data-id="${esc(item.id)}">View payment receipt</button>
+            <span class="small muted">Base64 image · visible to admin only</span>
+          </div>
+          <div class="wallet-proof-display hide" data-wallet-proof-display aria-live="polite"></div>
           <div class="lead-actions">
             <button class="btn btn-gold btn-sm" type="button" data-wallet-review="approve" data-id="${esc(item.id)}">Verify &amp; approve</button>
             <button class="btn btn-ghost btn-sm" type="button" data-wallet-review="reject" data-id="${esc(item.id)}">Reject request</button>
@@ -387,14 +392,60 @@
     }
   }
 
+  async function showWalletTopupProof(button) {
+    const card = button.closest("[data-wallet-request]");
+    const display = card && $("[data-wallet-proof-display]", card);
+    if (!card || !display) return;
+
+    if (display.dataset.loaded === "true") {
+      display.classList.toggle("hide");
+      button.textContent = display.classList.contains("hide") ? "View payment receipt" : "Hide receipt";
+      return;
+    }
+
+    button.disabled = true;
+    button.textContent = "Loading receipt…";
+    try {
+      const proof = await window.SG.adminGetWalletTopupProof(card.dataset.walletRequest);
+      if (typeof proof !== "string" || proof.length > 700000 ||
+          !/^data:image\/jpeg;base64,[A-Za-z0-9+/]+={0,2}$/.test(proof)) {
+        throw new Error("No valid receipt image was found for this request.");
+      }
+      display.innerHTML = `<img src="${esc(proof)}" alt="Uploaded transfer receipt" loading="lazy">`;
+      display.classList.remove("hide");
+      display.dataset.loaded = "true";
+      button.textContent = "Hide receipt";
+    } catch (err) {
+      display.classList.remove("hide");
+      display.textContent = (window.SG.friendlyDbError && window.SG.friendlyDbError(err)) || err.message || "Could not load the receipt.";
+      button.textContent = "Try loading receipt again";
+    } finally {
+      button.disabled = false;
+    }
+  }
+
   function initWalletTopups() {
     const el = $("[data-admin-wallet-topups]");
     if (!el) return;
     el.addEventListener("click", async (event) => {
+      const proofButton = event.target.closest("[data-wallet-proof-toggle]");
+      if (proofButton) {
+        await showWalletTopupProof(proofButton);
+        return;
+      }
+
       const button = event.target.closest("[data-wallet-review]");
       if (!button) return;
       const approve = button.dataset.walletReview === "approve";
-      if (approve && !confirm("Confirm you have received this payment and credit the client's wallet?")) return;
+      if (approve) {
+        const card = button.closest("[data-wallet-request]");
+        const proofDisplay = card && $("[data-wallet-proof-display]", card);
+        if (!proofDisplay || proofDisplay.dataset.loaded !== "true") {
+          toast("Open and review the payment receipt before approving this top-up.", "error");
+          return;
+        }
+        if (!confirm("Confirm you checked the receipt and received this payment in the company account? This will credit the client's wallet.")) return;
+      }
       button.disabled = true;
       try {
         await window.SG.adminReviewWalletTopup(button.dataset.id, approve);
@@ -848,7 +899,12 @@
     window.SGOnReady(() => {
       /* Keep the address list shown on the gate in step with the allowlist. */
       const hint = document.getElementById("adminEmailHint");
-      if (hint && window.SG.ADMIN_EMAILS) hint.textContent = window.SG.ADMIN_EMAILS.join(" and ");
+      if (hint && window.SG.ADMIN_EMAILS) {
+        const emails = window.SG.ADMIN_EMAILS;
+        hint.textContent = emails.length > 2
+          ? emails.slice(0, -1).join(", ") + " and " + emails[emails.length - 1]
+          : emails.join(" and ");
+      }
       window.SG.onUser((user) => { evaluateAccess(user); });
     });
   }

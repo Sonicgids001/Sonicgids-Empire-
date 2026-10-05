@@ -2,9 +2,9 @@
 
 Official website for **Sonicgids Empire**. The homepage and sign-in / account-recovery pages are
 public. Client account pages require a Firebase login and a verified email (Google sign-in counts as
-verified); the two configured admin accounts can access the admin console without email verification.
+verified); the three configured admin accounts can access the admin console without email verification.
 Verified clients can place boost orders using a naira wallet, track orders, and submit manual top-up
-requests. There are **no subscriptions and no retainer plans**.
+requests with a Base64 receipt image for admin approval. There are **no subscriptions and no retainer plans**.
 
 Built as a **plain static site** — HTML, CSS and vanilla JavaScript, no build step and no
 dependencies to install. Deploy the folder anywhere; it runs as-is.
@@ -72,23 +72,23 @@ to `verify-email.html`; checkout requires a verified account, a funded wallet an
 
 ## Admin console (`admin.html`)
 
-Access is restricted to **okogbagideon28@gmail.com** and **okogbaeladopere@gmail.com** — the
-allowlist is checked in the browser (`SG.ADMIN_EMAILS` in `assets/js/firebase.js`) and again in
-Firestore security rules. To change it, update both allowlists and deploy with
-`firebase deploy --only firestore:rules`.
+Access is restricted to **okogbagideon28@gmail.com**, **okogbaeladopere@gmail.com** and
+**beniwealth70@gmail.com** — the allowlist is checked in the browser (`SG.ADMIN_EMAILS` in
+`assets/js/firebase.js`) and again in Firestore security rules. To change it, update both allowlists
+and deploy with `firebase deploy --only firestore:rules`.
 
 ### Signing in as admin
 
 `admin.html` carries `data-auth-gate="inline"`, so signed-out visitors see the console's own
-sign-in panel instead of being bounced to `login.html`. Both allowed owner accounts can use the
-console with email/password or Google sign-in, whether or not the email-verification link has been
-opened. An unverified allowlisted admin sees a small reminder in the console, not a blocking gate.
+sign-in panel instead of being bounced to `login.html`. All three configured admin accounts can use
+the console with email/password or Google sign-in, whether or not the email-verification link has
+been opened. An unverified allowlisted admin sees a small reminder in the console, not a blocking gate.
 
 | State | What you see | What to do |
 | --- | --- | --- |
-| Signed out | **Continue with Google** + an owner email/password form | Sign in with either allowed owner account |
-| Allowed owner, email not verified | The admin console and a non-blocking verification reminder | Continue in the console; verify the address for better account recovery |
-| Somebody else's account | *"This account does not have admin access"* + **Switch to the owner account** | Sign out, then use one of the two allowed accounts |
+| Signed out | **Continue with Google** + an admin email/password form | Sign in with one of the three allowed admin accounts |
+| Allowed admin, email not verified | The admin console and a non-blocking verification reminder | Continue in the console; verify the address for better account recovery |
+| Somebody else's account | *"This account does not have admin access"* + **Switch to the owner account** | Sign out, then use one of the three allowed accounts |
 | Allowed owner, verified | The admin console | — |
 
 Notes:
@@ -96,9 +96,9 @@ Notes:
 - **Every email/password signup sends a verification link.** Ordinary accounts must verify before
   opening the dashboard, order page, rate card or other protected client pages. An unverified user is
   sent to `verify-email.html`, where they can resend the link and refresh their verification status.
-- **The two listed admin addresses are deliberately exempt from that client gate.** Their admin
+- **The three listed admin addresses are deliberately exempt from that client gate.** Their admin
   access is also allowed in Firestore rules, so reads and changes in the console work before
-  verification. Keep these addresses reserved to the actual owner accounts, use strong credentials
+  verification. Keep these addresses reserved to the actual admin accounts, use strong credentials
   and enable multi-factor authentication in Firebase; do not leave an unclaimed admin address open
   to public registration.
 - **Google needs no separate verification email.** Google has already proven the mailbox, so client
@@ -114,7 +114,7 @@ Notes:
 | --- | --- |
 | **Overview** | Live counts: awaiting approval, in progress, completed, pipeline value + open queue sorted by priority and recent activity |
 | **Orders** | Filter by status (pending / approved / ongoing / completed / rejected), search and process orders; rejecting refunds the client wallet atomically |
-| **Wallet top-ups** | Verify incoming payments and approve or reject user top-up requests; approval credits the wallet and ledger atomically |
+| **Wallet top-ups** | View Base64 receipt images, verify incoming payments and approve/reject requests; approval credits the wallet and ledger atomically |
 | **Boost services** | Add, edit, pause, delete services and set the **rate per 1,000 (₦)**, **min/max quantity**, quality label, start time and **processing priority** on each |
 | **Leads** | Contact-form briefs with reply-by-email / WhatsApp buttons |
 | **Subscribers** | Newsletter list with a *copy all emails* button |
@@ -209,8 +209,8 @@ edited by hand. To add a brand new page, copy an existing page, change the `<tit
 **Running the checks:**
 
 ```bash
-node tools/test-workflow.js     # 178 checks: auth/verification, admin identity, private-page gates,
-                                # status workflow, renderers, rules text and page wiring
+node tools/test-workflow.js     # 191 checks: auth/verification, admin identity, private-page gates,
+                                # top-up receipts, status workflow, rules text and page wiring
 ```
 
 Run this after changing anything in `assets/js/` or `firestore.rules`.
@@ -269,7 +269,8 @@ The site uses the `sonicgidsempire` Firebase project. The web config lives at th
 | `boostServices` | Admin console | `name`, `platform`, `category`, `unit`, **`ratePer1000`**, `currency`, **`min`**, **`max`**, `type`, `priceFrom` (legacy mirror), `turnaround`, `priority`, `priorityRank`, `description`, `active`, `createdAt`, `updatedAt` |
 | `wallets/{uid}` | Atomic checkout / admin credit | `balance`, `currency`, `updatedAt`, `lastTransactionId` |
 | `walletTransactions` | Atomic checkout / admin review | Immutable owner-scoped credits and debits, `amount`, `balanceAfter`, source and related order / top-up |
-| `walletTopups` | Client request / admin review | `uid`, `email`, `amount`, `reference`, `status`, review audit fields |
+| `walletTopups` | Client request / admin review | `uid`, `email`, `amount`, `reference`, `status`, `createdAt`, review audit fields |
+| `walletTopupProofs/{topupId}` | Atomic client upload / admin review | Compressed JPEG `proofDataUrl` (Base64), owner UID; admin-only reads and removed after review |
 
 Security summary enforced by `firestore.rules`:
 
@@ -280,11 +281,13 @@ Security summary enforced by `firestore.rules`:
   entry are one transaction. Clients can read only their own orders and cannot edit financial or status fields.
 * Anyone may **read** `boostServices` — the signed-in rate card uses the same catalogue — but only the
   admin can create services or change a rate, min or max.
-* Wallet balances and top-up approvals are admin-controlled. A client can only request a top-up;
-  no payment is credited until the owner verifies receipt. Rejected orders trigger an atomic refund.
+* Wallet top-ups use the company Moniepoint account **8077055122** (Okogba Gideon Eladopere Chizaram).
+  Clients submit a receipt image, compressed and stored as Base64 in a separate admin-only collection.
+  Requests remain pending and do not affect balance until an admin reviews the receipt and approves;
+  the image is deleted after review. Rejected orders trigger an atomic refund.
 * Protected client pages are hidden behind the browser auth guard until a regular account is verified.
   Firebase Hosting serves static files, so Firestore rules—not the page guard—are the security boundary
-  for private data. The exact two-address admin allowlist is the explicit verification exception.
+  for private data. The exact three-address admin allowlist is the explicit verification exception.
 
 ### The `window.SG` API
 
@@ -303,7 +306,7 @@ SG.sendVerificationEmail([user])            // send/resend to current or specifi
 SG.onUser(cb)
 
 // identity
-SG.ADMIN_EMAILS                            // the two configured owner addresses
+SG.ADMIN_EMAILS                            // the three configured admin addresses
 SG.ADMIN_EMAIL                             // primary owner address (first entry)
 SG.isAdminEmail(email)                     // case/space tolerant
 SG.isVerifiedUser(user)                    // verified email or trusted Google sign-in
@@ -336,7 +339,7 @@ SG.adminSeedServices()
 SG.ORDER_STATUSES                           // pending | approved | rejected | ongoing | completed
 SG.NEXT_STATUSES / SG.canMoveTo(from, to)   // allowed transitions
 SG.walletBalance() / SG.myWalletActivity()
-SG.requestWalletTopup(amount, reference)
+SG.requestWalletTopup(amount, reference, base64ReceiptDataUrl)
 SG.createOrder({ ... })                     // pending; atomically debits wallet
 SG.myOrders()
 SG.adminListOrders()
@@ -399,7 +402,9 @@ Update these in one place per page — the footer, contact page and service CTAs
 - [ ] Open `/pricing.html` logged out and confirm the live rate table shows the same ₦ rates
 - [ ] Open `/order.html?preview=1` and `/dashboard.html?preview=1` to review the layouts without signing in
 - [ ] Create a regular test account, confirm the Firebase verification link arrives, and verify that the dashboard/order pages stay blocked until verification; use the re-check control on `verify-email.html`
-- [ ] Sign in with each allowlisted admin account (including while unverified) and confirm `admin.html` and its Firestore data load; confirm other unverified accounts cannot read client data
+- [ ] Sign in with each allowlisted admin account (including `beniwealth70@gmail.com`, while unverified) and confirm `admin.html` and its Firestore data load; confirm other unverified accounts cannot read client data
+- [ ] Submit a wallet top-up with a receipt image; confirm it remains pending and the balance is unchanged
+- [ ] In **Admin → Wallet top-ups**, open the Base64 receipt, verify the Moniepoint transfer, approve, and confirm the wallet/ledger credit; reject a second request and confirm it adds no funds
 - [ ] Pick a service, enter a quantity and confirm the **amount (₦)** = qty ÷ 1,000 × rate
 - [ ] Try a quantity below the minimum and above the maximum — both must be blocked with a message
 - [ ] Place the order and confirm it saves as **pending** with `ratePer1000` and `quantityNum` set
