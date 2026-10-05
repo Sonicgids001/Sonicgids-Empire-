@@ -98,7 +98,7 @@
         <div class="lock">🔐</div>
         <span class="eyebrow">Restricted area</span>
         <h1 style="font-size:1.7rem;margin:12px 0 10px">Admin console</h1>
-        <p class="small muted">Process client orders, approve wallet top-ups and set boost rates. Only the two configured owner accounts can open this page.</p>
+        <p class="small muted">Process client orders, review payment receipts, approve wallet top-ups and set boost rates. Only the three configured admin accounts can open this page.</p>
 
         <div class="alert mt-3" data-admin-gate-alert role="alert"></div>
 
@@ -140,7 +140,7 @@
         <!-- Signed in as somebody else -->
         <div data-admin-noaccess class="hide">
           <div class="alert show alert-error mt-3">
-            This account does not have admin access. Sign in with one of the allowed owner addresses shown below.
+            This account does not have admin access. Sign in with one of the allowed admin addresses shown below.
           </div>
           <div class="btn-row mt-3" style="display:grid;gap:10px">
             <button class="btn btn-gold btn-block" type="button" data-sign-out data-redirect="admin.html">Switch to the owner account</button>
@@ -149,7 +149,7 @@
         </div>
 
         <div class="divider"></div>
-        <p class="small muted">Allowed admin accounts: <strong id="adminEmailHint">okogbagideon28@gmail.com and okogbaeladopere@gmail.com</strong>. These two configured owner accounts can use the console without email verification. The allowlist is enforced again by Firestore security rules.</p>
+        <p class="small muted">Allowed admin accounts: <strong id="adminEmailHint">okogbagideon28@gmail.com, okogbaeladopere@gmail.com and beniwealth70@gmail.com</strong>. These three configured admin accounts can use the console without email verification. The allowlist is enforced again by Firestore security rules.</p>
       </div>
     </div>
 
@@ -241,7 +241,13 @@
       <div data-admin-view="wallet" class="hide">
         <div class="card card-solid mb-3">
           <h3>Wallet top-up requests</h3>
-          <p class="small muted mt-1">Verify each transfer in your payment account before approving it. Approve adds the requested amount to the client's wallet; reject leaves the balance unchanged.</p>
+          <p class="small muted mt-1">Open the uploaded receipt and confirm the transfer in your account before approving. Approval credits the requested amount to the client's wallet; rejection leaves the balance unchanged. Receipt images are removed after review.</p>
+          <div class="wallet-bank-details admin-wallet-bank-details mt-2" aria-label="Company account for incoming transfers">
+            <span class="eyebrow">Company receiving account</span>
+            <div class="wallet-bank-line"><span>Bank</span><strong>Moniepoint</strong></div>
+            <div class="wallet-bank-line"><span>Account number</span><strong class="wallet-account-number">8077055122</strong></div>
+            <div class="wallet-bank-line"><span>Account name</span><strong>Okogba Gideon Eladopere Chizaram</strong></div>
+          </div>
         </div>
         <div data-admin-wallet-topups></div>
       </div>

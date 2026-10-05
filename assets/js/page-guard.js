@@ -5,7 +5,7 @@
      • default      — signed-out visitors go to login.html; signed-in users
                       need a verified email before client pages can load.
      • inline gate  — admin.html stays reachable while signed out so its own
-                      sign-in panel can be used. The two configured admin
+                      sign-in panel can be used. The configured admin
                       emails are also allowed through without verification.  */
 (function () {
   "use strict";

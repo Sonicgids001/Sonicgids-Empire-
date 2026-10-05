@@ -444,6 +444,20 @@
 .wallet-topup, .wallet-activity { min-width: 0; }
 .wallet-topup h3, .wallet-activity h3 { font-size: 1rem; margin-bottom: 6px; }
 .wallet-topup .alert { margin-top: 10px; }
+.wallet-bank-details {
+  display: grid;
+  gap: 8px;
+  padding: 14px 16px;
+  border: 1px solid var(--gold-line);
+  border-radius: var(--r-md);
+  background: var(--gold-soft);
+}
+.wallet-bank-details .eyebrow { margin-bottom: 2px; }
+.wallet-bank-line { display: flex; justify-content: space-between; align-items: baseline; gap: 14px; font-size: 0.84rem; }
+.wallet-bank-line > span { color: var(--muted); flex: none; }
+.wallet-bank-line strong { color: var(--ink); text-align: right; overflow-wrap: anywhere; }
+.wallet-account-number { font-variant-numeric: tabular-nums; letter-spacing: 0.04em; }
+.admin-wallet-bank-details { max-width: 620px; }
 .wallet-entry {
   display: flex;
   justify-content: space-between;

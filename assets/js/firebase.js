@@ -275,15 +275,15 @@ SG.myLeads = async function () {
 
 /* ==========================================================================
    ACCOUNT IDENTITY
-   Only the two explicitly configured owner addresses can reach the admin
-   panel. Email/password accounts normally need a verified email before they
-   can use the client dashboard; these two trusted admin addresses are the
-   deliberate exception. Firestore rules enforce both decisions server-side.
+   Only the explicitly configured owner addresses can reach the admin panel.
+   Email/password accounts normally need a verified email before they can use
+   the client dashboard; trusted admin addresses are the deliberate exception.
+   Firestore rules enforce both decisions server-side.
 
    Keep ADMIN_EMAILS in step with isAdminEmail() in firestore.rules, then
    redeploy the rules after changing the allowlist.
    ========================================================================== */
-SG.ADMIN_EMAILS = ["okogbagideon28@gmail.com", "okogbaeladopere@gmail.com"];
+SG.ADMIN_EMAILS = ["okogbagideon28@gmail.com", "okogbaeladopere@gmail.com", "beniwealth70@gmail.com"];
 
 /* Kept for backwards compatibility — the primary owner address. */
 SG.ADMIN_EMAIL = SG.ADMIN_EMAILS[0];
@@ -312,7 +312,7 @@ SG.isVerifiedUser = function (user) {
 
 /* Admin email addresses are intentionally exempt from the client email
    verification gate, so they can open the console immediately after signing
-   in. Firestore rules use the same two-address allowlist. */
+   in. Firestore rules use the same allowlist. */
 SG.adminStatus = function (user) {
   if (!user) return "signed-out";
   return SG.isAdminEmail(user.email) ? "owner" : "not-admin";
@@ -578,8 +578,8 @@ SG.adminSeedServices = async function () {
    ORDERS — pending → approved / rejected → ongoing → completed
    ========================================================================== */
 /* ==========================================================================
-   WALLET — balances are changed only by atomic order debits or admin credits.
-   Clients may request a top-up but cannot mark it paid themselves.
+   WALLET — balances change only through atomic order debits or admin credits.
+   Top-ups require a private Base64 receipt and remain pending until review.
    ========================================================================== */
 SG.walletBalance = async function () {
   await readyPromise;
@@ -606,17 +606,32 @@ SG.myWalletActivity = async function () {
     .sort((a, b) => toMillis(b.createdAt) - toMillis(a.createdAt)).slice(0, 10);
 };
 
-SG.requestWalletTopup = async function (amount, reference) {
+SG.MAX_TOPUP_PROOF_DATA_URL_CHARS = 700000;
+
+SG.requestWalletTopup = async function (amount, reference, proofDataUrl) {
   await readyPromise;
   if (!SG.db || !SG.currentUser) throw new Error("Sign in to request a wallet top-up.");
   const value = Math.round(Number(amount) * 100) / 100;
   if (!Number.isFinite(value) || value < 100 || value > 50000000) throw new Error("Enter an amount between ₦100 and ₦50,000,000.");
-  const { addDoc, collection, serverTimestamp } = SG._mods.fs;
-  const result = await addDoc(collection(SG.db, "walletTopups"), {
+  if (typeof proofDataUrl !== "string" || proofDataUrl.length > SG.MAX_TOPUP_PROOF_DATA_URL_CHARS ||
+      !/^data:image\/jpeg;base64,[A-Za-z0-9+/]+={0,2}$/.test(proofDataUrl)) {
+    throw new Error("Upload a valid payment receipt image. It will be compressed before submission.");
+  }
+
+  const { doc, collection, writeBatch, serverTimestamp } = SG._mods.fs;
+  const topupRef = doc(collection(SG.db, "walletTopups"));
+  const proofRef = doc(SG.db, "walletTopupProofs", topupRef.id);
+  const batch = writeBatch(SG.db);
+  batch.set(topupRef, {
     uid: SG.currentUser.uid, email: SG.currentUser.email || "", amount: value,
     reference: String(reference || "").trim().slice(0, 100), status: "pending", createdAt: serverTimestamp()
   });
-  return result.id;
+  batch.set(proofRef, {
+    uid: SG.currentUser.uid, topupId: topupRef.id, proofDataUrl,
+    createdAt: serverTimestamp()
+  });
+  await batch.commit();
+  return topupRef.id;
 };
 
 SG.myWalletTopups = async function () {
@@ -636,17 +651,37 @@ SG.adminListWalletTopups = async function () {
   return snap.docs.map((d) => ({ id: d.id, ...d.data() })).sort((a, b) => toMillis(a.createdAt) - toMillis(b.createdAt));
 };
 
+SG.adminGetWalletTopupProof = async function (topupId) {
+  await readyPromise;
+  if (!SG.db || !SG.currentUser || !SG.isAdminUser(SG.currentUser)) throw new Error("Admin access required.");
+  const { doc, getDoc } = SG._mods.fs;
+  const snap = await getDoc(doc(SG.db, "walletTopupProofs", topupId));
+  if (!snap.exists()) return null;
+  const data = snap.data();
+  if (data.topupId !== topupId || typeof data.proofDataUrl !== "string" ||
+      data.proofDataUrl.length > SG.MAX_TOPUP_PROOF_DATA_URL_CHARS ||
+      !/^data:image\/jpeg;base64,[A-Za-z0-9+/]+={0,2}$/.test(data.proofDataUrl)) {
+    throw new Error("The saved receipt image is invalid or unavailable.");
+  }
+  return data.proofDataUrl;
+};
+
 SG.adminReviewWalletTopup = async function (topupId, approve) {
   await readyPromise;
   if (!SG.db || !SG.currentUser || !SG.isAdminUser(SG.currentUser)) throw new Error("Admin access required.");
   const { doc, runTransaction, serverTimestamp } = SG._mods.fs;
   const topupRef = doc(SG.db, "walletTopups", topupId);
+  const proofRef = doc(SG.db, "walletTopupProofs", topupId);
   const transactionId = "topup_" + topupId;
   const ledgerRef = doc(SG.db, "walletTransactions", transactionId);
   await runTransaction(SG.db, async (tx) => {
     const topupSnap = await tx.get(topupRef);
     if (!topupSnap.exists() || topupSnap.data().status !== "pending") throw new Error("This top-up request has already been reviewed.");
     const topup = topupSnap.data();
+    const proofSnap = await tx.get(proofRef);
+    if (approve && (!proofSnap.exists() || proofSnap.data().uid !== topup.uid)) {
+      throw new Error("A valid payment receipt is required before this top-up can be approved.");
+    }
     const walletRef = doc(SG.db, "wallets", topup.uid);
     const walletSnap = await tx.get(walletRef);
     const balance = walletSnap.exists() ? Number(walletSnap.data().balance) || 0 : 0;
@@ -656,6 +691,8 @@ SG.adminReviewWalletTopup = async function (topupId, approve) {
       tx.set(walletRef, { balance: nextBalance, currency: "NGN", updatedAt: serverTimestamp(), lastTransactionId: transactionId }, { merge: true });
       tx.set(ledgerRef, { uid: topup.uid, type: "credit", source: "topup", amount: Number(topup.amount), balanceAfter: nextBalance, topupId, createdAt: serverTimestamp(), note: "Wallet top-up approved" });
     }
+    // Receipt images are private and are removed once the request is reviewed.
+    if (proofSnap.exists()) tx.delete(proofRef);
   });
 };
 
@@ -827,7 +864,7 @@ SG.friendlyDbError = function (err) {
     if (SG.currentUser && !SG.isVerifiedUser(SG.currentUser)) {
       return "Verify your email before opening client account data. Visit verify-email.html to resend the link or check access.";
     }
-    return "You do not have permission to read this data. Admin data is limited to the two configured owner accounts.";
+    return "You do not have permission to read this data. Admin data is limited to the configured owner accounts.";
   }
   if (code === "unavailable")
     return "Could not reach the database. Check that Cloud Firestore is enabled for this project.";

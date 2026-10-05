@@ -8,11 +8,13 @@ rules_version = '2';
 //   subscribers    — newsletter sign-ups from the footer / blog
 //   orders         — boost-service orders (pending → approved → ongoing → completed)
 //   boostServices  — the boosting catalogue managed from the admin console
+//   walletTopups   — pending manual transfers awaiting admin approval
+//   walletTopupProofs — private Base64 receipt images, deleted after review
 //
 // Access model
 //   • Clients      : must have a verified email (or sign in with Google) before
 //                    reading or writing their own private account records.
-//   • Admin        : the two trusted owner addresses below may use the admin
+//   • Admin        : the three trusted owner addresses below may use the admin
 //                    console without the client email-verification gate.
 //   • Everything else is denied.
 // ============================================================================
@@ -25,11 +27,12 @@ service cloud.firestore {
     // Adding or removing an admin requires changing both allowlists, then
     // deploying: firebase deploy --only firestore:rules
     //
-    // These two owner addresses are deliberately exempt from the client
+    // These owner addresses are deliberately exempt from the client
     // verification gate so they can reach the admin console immediately.
     function isAdminEmail(email) {
       return email == 'okogbagideon28@gmail.com'
-          || email == 'okogbaeladopere@gmail.com';
+          || email == 'okogbaeladopere@gmail.com'
+          || email == 'beniwealth70@gmail.com';
     }
 
     function isAdmin() {
@@ -51,6 +54,30 @@ service cloud.firestore {
 
     function isString(value, max) {
       return value is string && value.size() <= max;
+    }
+
+    // Receipt images are resized to JPEG data URLs by the client before upload.
+    // Keep them below Firestore's 1 MiB document limit with room for metadata.
+    function isValidReceiptImage(value) {
+      return value is string
+        && value.size() > 30
+        && value.size() <= 700000
+        && value.matches('^data:image/jpeg;base64,[A-Za-z0-9+/]+={0,2}$');
+    }
+
+    function topupHasProof(topupId, uid) {
+      let proofPath = /databases/$(database)/documents/walletTopupProofs/$(topupId);
+      return existsAfter(proofPath)
+        && getAfter(proofPath).data.uid == uid
+        && getAfter(proofPath).data.topupId == topupId
+        && isValidReceiptImage(getAfter(proofPath).data.proofDataUrl);
+    }
+
+    function proofHasTopup(topupId, uid) {
+      let topupPath = /databases/$(database)/documents/walletTopups/$(topupId);
+      return existsAfter(topupPath)
+        && getAfter(topupPath).data.uid == uid
+        && getAfter(topupPath).data.status == 'pending';
     }
 
     // ---- Contact form briefs ------------------------------------------------
@@ -216,22 +243,39 @@ service cloud.firestore {
       allow update, delete: if false;
     }
 
-    // Top-up requests are intentionally not deposits: an owner verifies
-    // receipt of funds and credits the wallet in a separate admin-only action.
+    // Top-up requests stay pending until an owner verifies the transfer.
+    // The amount/metadata and private base64 receipt are created atomically.
     match /walletTopups/{topupId} {
       allow create: if verifiedUser()
+                    && request.resource.data.keys().hasOnly(['uid', 'email', 'amount', 'reference', 'status', 'createdAt'])
                     && request.resource.data.uid == request.auth.uid
+                    && request.resource.data.email == request.auth.token.email
                     && isValidEmail(request.resource.data.email)
                     && request.resource.data.amount is number
                     && request.resource.data.amount >= 100
                     && request.resource.data.amount <= 50000000
                     && request.resource.data.status == 'pending'
-                    && isString(request.resource.data.reference, 100);
+                    && isString(request.resource.data.reference, 100)
+                    && topupHasProof(topupId, request.auth.uid);
       allow read: if isAdmin() || (verifiedUser() && resource.data.uid == request.auth.uid);
       allow update: if isAdmin()
                     && resource.data.status == 'pending'
                     && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'reviewedAt', 'reviewedBy'])
                     && request.resource.data.status in ['approved', 'rejected'];
+      allow delete: if isAdmin();
+    }
+
+    // Base64 payment receipt images are private to admins and immutable while
+    // a top-up is pending. Admin review deletes the image after deciding.
+    match /walletTopupProofs/{topupId} {
+      allow create: if verifiedUser()
+                    && request.resource.data.keys().hasOnly(['uid', 'topupId', 'proofDataUrl', 'createdAt'])
+                    && request.resource.data.uid == request.auth.uid
+                    && request.resource.data.topupId == topupId
+                    && isValidReceiptImage(request.resource.data.proofDataUrl)
+                    && proofHasTopup(topupId, request.auth.uid);
+      allow read: if isAdmin();
+      allow update: if false;
       allow delete: if isAdmin();
     }
 

@@ -540,8 +540,56 @@
     });
   }
 
+  async function encodeWalletProof(file) {
+    if (!file) throw new Error("Choose a screenshot or photo of your transfer receipt.");
+    const acceptedTypes = ["image/jpeg", "image/png", "image/webp"];
+    if (!acceptedTypes.includes(String(file.type || "").toLowerCase())) {
+      throw new Error("Use a JPG, PNG or WebP image for your payment receipt.");
+    }
+    if (file.size > 15 * 1024 * 1024) {
+      throw new Error("That image is too large to process. Choose an image under 15 MB.");
+    }
+
+    const maxChars = (window.SG && window.SG.MAX_TOPUP_PROOF_DATA_URL_CHARS) || 700000;
+    const objectUrl = URL.createObjectURL(file);
+    try {
+      const image = new Image();
+      await new Promise((resolve, reject) => {
+        image.onload = resolve;
+        image.onerror = () => reject(new Error("This receipt image could not be opened. Try a different image."));
+        image.src = objectUrl;
+      });
+
+      if (!image.naturalWidth || !image.naturalHeight || Math.max(image.naturalWidth, image.naturalHeight) > 12000) {
+        throw new Error("This image has unsupported dimensions. Choose a normal screenshot or photo.");
+      }
+      const maxDimension = 1600;
+      let scale = Math.min(1, maxDimension / Math.max(image.naturalWidth, image.naturalHeight));
+      const canvas = document.createElement("canvas");
+      const context = canvas.getContext("2d");
+      if (!context) throw new Error("Image processing is unavailable in this browser. Try another browser.");
+
+      for (let resize = 0; resize < 7; resize++) {
+        canvas.width = Math.max(1, Math.round(image.naturalWidth * scale));
+        canvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
+        context.fillStyle = "#ffffff";
+        context.fillRect(0, 0, canvas.width, canvas.height);
+        context.drawImage(image, 0, 0, canvas.width, canvas.height);
+
+        for (const quality of [0.82, 0.72, 0.62, 0.52]) {
+          const dataUrl = canvas.toDataURL("image/jpeg", quality);
+          if (dataUrl.length <= maxChars) return dataUrl;
+        }
+        scale *= 0.8;
+      }
+      throw new Error("This receipt image is still too large after compression. Choose a smaller screenshot.");
+    } finally {
+      URL.revokeObjectURL(objectUrl);
+    }
+  }
+
   /* --------------------------------------------------------------------------
-     Wallet panel — top-ups are requests and require manual payment verification.
+     Wallet panel — top-ups remain pending until an admin reviews the receipt.
      -------------------------------------------------------------------------- */
   function initWallet() {
     const root = $("[data-wallet-balance]");
@@ -571,7 +619,7 @@
           status: ""
         }));
         topups.forEach((topup) => entries.push({
-          title: "Top-up request" + (topup.reference ? " · " + topup.reference : ""),
+          title: "Top-up request · " + window.SG.money(topup.amount) + (topup.reference ? " · " + topup.reference : ""),
           value: 0, createdAt: topup.createdAt, status: topup.status
         }));
         entries.sort((a, b) => walletMillis(b.createdAt) - walletMillis(a.createdAt));
@@ -591,13 +639,17 @@
       const button = $('button[type="submit"]', form);
       const amount = Number($('[name="amount"]', form).value);
       const reference = $('[name="reference"]', form).value.trim();
+      const proofFile = $('[name="proof"]', form).files && $('[name="proof"]', form).files[0];
       if (!Number.isFinite(amount) || amount < 100) return setWalletAlert("Enter at least ₦100.", "error");
+      if (!proofFile) return setWalletAlert("Upload an image of your transfer receipt before submitting.", "error");
       button.disabled = true;
-      button.textContent = "Submitting…";
+      button.textContent = "Preparing receipt…";
       try {
-        await window.SG.requestWalletTopup(amount, reference);
+        const proofDataUrl = await encodeWalletProof(proofFile);
+        button.textContent = "Submitting request…";
+        await window.SG.requestWalletTopup(amount, reference, proofDataUrl);
         form.reset();
-        setWalletAlert("Top-up request received. We’ll verify the transfer before adding funds to your wallet.", "success");
+        setWalletAlert("Your request is pending. An admin will review the receipt; your available balance will change only if it is approved.", "success");
         await refresh();
       } catch (err) {
         setWalletAlert((window.SG.friendlyDbError && window.SG.friendlyDbError(err)) || err.message || "Could not submit the request.", "error");
