@@ -17,6 +17,12 @@
         ]
       },
       {
+        "source": "assets/data/**",
+        "headers": [
+          { "key": "Cache-Control", "value": "public, max-age=300, must-revalidate" }
+        ]
+      },
+      {
         "source": "**/*.@(jpg|jpeg|png|webp|svg|gif|ico)",
         "headers": [
           { "key": "Cache-Control", "value": "public, max-age=604800" }

@@ -43,6 +43,8 @@ dependencies to install. Deploy the folder anywhere; it runs as-is.
 | Reset password | `forgot-password.html` | Password reset email |
 | Dashboard | `dashboard.html` | Email-verified app shell with a side menu: **New order** (boost panel), **My orders**, **Wallet** (balance, top-ups, activity) and **Activity** |
 | **Admin console** | `admin.html` | **Owner-only.** Process orders, **set the rate per 1,000 / min / max**, priorities and the catalogue |
+| **The arcade** | `games.html` | Public game hub: 25+ seeded titles, search, category chips, sort, load-more, random pick |
+| **Game player** | `play.html` | Public full-page player for one game (`play.html?id=123`), with controls, related games and share |
 | 404 | `404.html` | Custom not-found page |
 | Legal | `privacy.html`, `terms.html` | Privacy policy and terms of service |
 
@@ -67,6 +69,45 @@ The boost panel is one shared component — `assets/js/panel.js` renders into an
 Add `?preview=1` to `order.html` or `dashboard.html` to render the UI while signed out (the page
 guard lets the shell through, no private data is loaded). A signed-in but unverified client is still sent
 to `verify-email.html`; checkout requires a verified account, a funded wallet and a seeded Firestore service catalogue.
+
+---
+
+## The arcade (`games.html` + `play.html`)
+
+A free browser arcade built on the **GameMonetize** catalogue (<https://gamemonetize.com>). It is
+public — no sign-in — and exists to hold attention: longer sessions, a reason to bookmark the site
+and a steady surface of new pages for search.
+
+| Piece | What it does |
+| --- | --- |
+| `games.html` | Hub: search box, category chips, sort (featured / newest / A–Z), 24-per-batch load-more, random pick. Filters are mirrored into the URL (`?q=`, `?cat=`, `?sort=`) |
+| `play.html?id=…` | One game, full page: responsive stage (sized from the game's native aspect ratio), fullscreen, share, controls, tags, related games, per-game title/description/OG tags and `VideoGame` JSON-LD |
+| `assets/data/games.js` | The catalogue. **Generated** — do not edit by hand |
+| `assets/js/games.js` | Loads the catalogue, renders both pages, caches live results in `localStorage` |
+| `tools/fetch-gamemonetize.js` | Pulls the public GameMonetize feed and rewrites the catalogue |
+
+**Three layers of data**, tried in order, so the arcade never looks broken:
+
+1. `assets/data/games.js` — committed seed, renders instantly, needs no network;
+2. `localStorage` (`sg_arcade_feed_v2`) — the last successful live pull, 6 hour TTL;
+3. `https://gamemonetize.com/feed.php?format=0&num=100&page=N` — the live feed. If the browser
+   blocks it on CORS the site silently keeps tiers 1–2 for the rest of the session.
+
+**Refreshing the catalogue:**
+
+```bash
+node tools/fetch-gamemonetize.js                # 8 pages × 100 games (≈800 titles)
+node tools/fetch-gamemonetize.js --pages=20     # go deeper
+node tools/fetch-gamemonetize.js --json         # also write assets/data/games.json
+node tools/fetch-gamemonetize.js --force        # overwrite even if the result is smaller
+```
+
+The tool refuses to shrink the catalogue by accident, skips duplicate ids and normalises every row
+to the shape documented at the top of `assets/data/games.js`. Commit the regenerated file.
+
+**Licensing and hosting:** every game is embedded from `html5.gamemonetize.co` in an iframe with
+GameMonetize's permission for free distribution, and the in-game ads are served by them. Nothing is
+downloaded, re-hosted or modified — never strip the iframe attribution in `play.html`.
 
 ---
 
@@ -175,7 +216,10 @@ back to that built-in list so ordering works on day one.
 │   ├── css/
 │   │   ├── style.css                   # Design tokens, layout, nav, footer, components
 │   │   ├── pages.css                   # Case studies, blog, auth, dashboard
+│   │   ├── games.css                   # Arcade grid, toolbar, player stage
 │   │   └── admin.css                   # Admin console, boost panel, rate card table
+│   ├── data/
+│   │   └── games.js                    # Arcade catalogue (window.SG_GAMES_SEED) — regenerated
 │   └── js/
 │       ├── firebase.js                 # Firebase app, lazy SDK loader, window.SG API,
 │       │                               #   admin identity, boost services, order helpers
@@ -185,6 +229,7 @@ back to that built-in list so ordering works on day one.
 │       ├── orders.js                   # Shared order renderers + dashboard order list
 │       ├── panel.js                    # The boost panel (buy page) — order.html + dashboard
 │       ├── rates.js                    # Public rate card (pricing.html) + home teaser
+│       ├── games.js                    # Arcade: catalogue loader, hub grid, player page
 │       └── admin.js                    # Admin console: orders, rates, priorities, catalogue
 ├── firebase.json                       # Firebase Hosting + Firestore config
 ├── .firebaserc                         # Default project: sonicgidsempire
@@ -211,6 +256,8 @@ edited by hand. To add a brand new page, copy an existing page, change the `<tit
 ```bash
 node tools/test-workflow.js     # 191 checks: auth/verification, admin identity, private-page gates,
                                 # top-up receipts, status workflow, rules text and page wiring
+node tools/test-arcade.js       # 41 checks: catalogue integrity, arcade page wiring, nav links,
+                                # sitemap + home-page cross-references
 ```
 
 Run this after changing anything in `assets/js/` or `firestore.rules`.
@@ -232,7 +279,8 @@ npx serve .
 Then open http://localhost:8080
 
 > Opening the files directly with `file://` mostly works, but the contact form, login and
-> dashboard need a real HTTP origin for Firebase Authentication to function.
+> dashboard need a real HTTP origin for Firebase Authentication to function. The arcade works from
+> `file://` too — it just falls back to the committed catalogue and skips the live feed (CORS).
 
 ---
 
