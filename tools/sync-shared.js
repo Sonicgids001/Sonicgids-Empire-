@@ -12,8 +12,7 @@
  * Blocks are located by structure (not by comment markers), so it also
  * repairs pages where the footer or navigation has been edited by hand.
  *
- * 404.html is skipped on purpose: it has a host-aware <base> element so its
- * links work on both the Firebase root domain and the GitHub Pages project path.
+ * 404.html and verify-email.html are skipped on purpose (see SKIP below).
  */
 
 const fs = require("fs");
@@ -21,7 +20,12 @@ const path = require("path");
 
 const ROOT = path.resolve(__dirname, "..");
 const SOURCE = "index.html";
-const SKIP = new Set(["index.html", "404.html"]);
+/* 404.html and verify-email.html are skipped on purpose:
+   404.html has a host-aware <base> element so its links work on both the
+   Firebase root domain and the GitHub Pages project path, and
+   verify-email.html is a focused verification step with its own minimal
+   header and no footer. */
+const SKIP = new Set(["index.html", "404.html", "verify-email.html"]);
 
 const HEADER_START = '<header class="site-header">';
 const HEADER_END_TAG = '<div class="scroll-progress"></div>';
